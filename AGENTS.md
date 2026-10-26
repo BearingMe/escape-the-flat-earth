@@ -59,6 +59,12 @@ tests/       # GUT tests, mirroring source folders
 - New `.tscn` files stay small and get assembled in code over deep nesting. Reference scripts/scenes by `res://` path; let `--import` generate UIDs — never invent `uid://...` strings.
 - Commit messages follow Conventional Commits only: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, etc. (e.g. `feat: add buildable prop spawner`). Never use vague messages like "update" or "stuff".
 
+## Memory Systems
+Two memory systems are available; the split is strict, never cross them:
+- **agentmemory** — Arowana work memory: session observations, decisions, bugs/gotchas, lessons, per-file history. Search it before redoing past Arowana work; save decisions and lessons there as the project evolves.
+- **mempalace** — external reference corpus: the `.references/` vault, mined into the `.references` wing (rooms = one per reference project, underscore names like `modu_vehicle`). Search it before browsing `source/` folders directly: MCP `mempalace_search({ query, room })` — filter by **room only**, never by wing (the wing name `.references` is rejected by MCP validation; room names are unique palace-wide so room filtering is equivalent). CLI fallback: `mempalace search "query" --room <project>`.
+- Never write Arowana session state into mempalace, and never search agentmemory for reference-repo content. Other mempalace wings belong to other projects — always scope queries to the `.references` wing.
+
 ## Workflow
 1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem.
 2. **Plan**: one feature per change, minimal blast radius.
