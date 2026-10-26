@@ -366,8 +366,10 @@ func _spawn_position(new_stable_id: String) -> Vector3:
 	var spawn_angle: float = (
 		TAU * float(spawn_sequence % config.max_players) / float(config.max_players)
 	)
-	return Vector3(
-		cos(spawn_angle) * SPAWN_RING_RADIUS_M,
-		config.disk_thickness_m * 0.5 + 0.05,
-		sin(spawn_angle) * SPAWN_RING_RADIUS_M
-	)
+	var spawn_x: float = cos(spawn_angle) * SPAWN_RING_RADIUS_M
+	var spawn_z: float = sin(spawn_angle) * SPAWN_RING_RADIUS_M
+	var terrain_generator: DiskTerrainGenerator = DiskTerrainGenerator.new()
+	var terrain_height: float = 0.0
+	if terrain_generator.configure(config, config.world_seed) == OK:
+		terrain_height = terrain_generator.sample_mesh_cell_max_height(spawn_x, spawn_z)
+	return Vector3(spawn_x, config.disk_thickness_m * 0.5 + terrain_height + 0.1, spawn_z)

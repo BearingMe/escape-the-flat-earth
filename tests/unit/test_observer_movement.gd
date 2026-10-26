@@ -36,6 +36,16 @@ func test_stable_player_spawn_slots_are_spaced_around_the_disk_center() -> void:
 	first.configure(1, "player_8675309_1", "First")
 	second.configure(2, "player_8675309_2", "Second")
 	assert_gt(first.position.distance_to(second.position), 2.9)
-	assert_almost_eq(first.position.y, World.config.disk_thickness_m * 0.5 + 0.05, 0.0001)
+	var terrain: DiskTerrainGenerator = DiskTerrainGenerator.new()
+	assert_eq(terrain.configure(World.config, World.config.world_seed), OK)
+	assert_almost_eq(
+		first.position.y,
+		(
+			World.config.disk_thickness_m * 0.5
+			+ terrain.sample_mesh_cell_max_height(first.position.x, first.position.z)
+			+ 0.1
+		),
+		0.0001
+	)
 	first.free()
 	second.free()

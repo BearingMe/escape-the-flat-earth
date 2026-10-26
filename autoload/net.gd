@@ -127,7 +127,12 @@ func _spawn_player(peer_id: int) -> bool:
 	if stable_id.is_empty():
 		return false
 	var spawned: Node = _spawner.spawn(
-		{"peer_id": peer_id, "display_name": player_name, "stable_id": stable_id}
+		{
+			"peer_id": peer_id,
+			"display_name": player_name,
+			"stable_id": stable_id,
+			"world_config": World.config.to_dictionary()
+		}
 	)
 	return spawned is ObserverPlayer
 
@@ -138,8 +143,24 @@ func _create_observer(data: Variant) -> Node:
 	var peer_id: int = int(data.get("peer_id", 0))
 	var display_name: String = str(data.get("display_name", ""))
 	var stable_id: String = str(data.get("stable_id", ""))
-	if peer_id < 1 or display_name.is_empty() or stable_id.is_empty():
+	var world_config_data: Variant = data.get("world_config")
+	if (
+		peer_id < 1
+		or display_name.is_empty()
+		or stable_id.is_empty()
+		or not world_config_data is Dictionary
+	):
 		return null
+	var synced_config: WorldConfig = WorldConfig.from_dictionary(world_config_data)
+	if synced_config == null:
+		Log.error("network.invalid_world_config_spawn", {"peer_id": peer_id})
+		return null
+	World.config = synced_config
+	for disk_node: Node in get_tree().get_nodes_in_group("world_disks"):
+		var disk_result: Error = disk_node.call("configure", synced_config)
+		if disk_result != OK:
+			Log.error("network.world_disk_resync_failed", {"error": disk_result})
+			return null
 	var observer: ObserverPlayer = OBSERVER_SCENE.instantiate() as ObserverPlayer
 	if observer == null:
 		return null

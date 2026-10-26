@@ -1,5 +1,7 @@
 extends StaticBody3D
 
+var _configured_geometry_signature: String = ""
+
 @onready var _collision: CollisionShape3D = %CollisionShape3D
 @onready var _top_surface: MeshInstance3D = %TopSurface
 @onready var _underside_surface: MeshInstance3D = %UndersideSurface
@@ -7,6 +9,7 @@ extends StaticBody3D
 
 
 func _ready() -> void:
+	add_to_group("world_disks")
 	_top_surface.material_override = _surface_material(Color("#557b42"))
 	_underside_surface.material_override = _surface_material(Color("#43566b"))
 	_rim_surface.material_override = _surface_material(Color("#c7e5ed"))
@@ -25,6 +28,9 @@ func configure(config: WorldConfig) -> Error:
 		or _rim_surface == null
 	):
 		return ERR_UNCONFIGURED
+	var geometry_signature: String = "%s|%s" % [config.disk_radius_m, config.disk_thickness_m]
+	if geometry_signature == _configured_geometry_signature and _collision.shape != null:
+		return OK
 	var half_thickness: float = config.disk_thickness_m * 0.5
 	var shape: CylinderShape3D = CylinderShape3D.new()
 	shape.radius = config.disk_radius_m
@@ -38,6 +44,7 @@ func configure(config: WorldConfig) -> Error:
 	_underside_surface.position.y = -half_thickness + minf(0.5, half_thickness)
 	_configure_cylinder(_rim_surface, config.disk_radius_m, config.disk_thickness_m)
 	_rim_surface.position.y = 0.0
+	_configured_geometry_signature = geometry_signature
 	return OK
 
 

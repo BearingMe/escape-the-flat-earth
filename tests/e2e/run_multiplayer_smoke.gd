@@ -3,6 +3,8 @@ extends SceneTree
 const PROCESS_TIMEOUT_SEC: float = 35.0
 const CLIENT_COUNT: int = 5
 const SIMULATED_INTENT_DELAY_MSEC: int = 100
+const HOST_WORLD_SEED: int = 8675309
+const CLIENT_REQUESTED_SEED: int = 8675310
 
 var _process_ids: Array[int] = []
 var _run_directory: String = ""
@@ -66,7 +68,7 @@ func _run_client_stage(project_path: String) -> bool:
 	if port <= 0:
 		_failure_message = "Host readiness file did not contain a valid port"
 		return false
-	if not _launch_clients(project_path, port):
+	if not await _launch_clients(project_path, port):
 		return false
 	if not await _wait_for_capacity_disconnect_and_host_result():
 		return false
@@ -92,6 +94,11 @@ func _launch_clients(project_path: String, port: int) -> bool:
 			return false
 		_client_process_ids.append(client_pid)
 		_process_ids.append(client_pid)
+		if not await _wait_for_file("client-%d.ready.json" % client_slot, client_pid):
+			_failure_message = (
+				"Client %d did not finish late-join terrain initialization" % client_slot
+			)
+			return false
 	return true
 
 
@@ -138,6 +145,8 @@ func _verify_results() -> bool:
 		return false
 	if not _verify_camera_results():
 		return false
+	if not _verify_world_results():
+		return false
 	if not _verify_movement_results():
 		return false
 	return _verify_disconnect_results()
@@ -180,6 +189,46 @@ func _verify_movement_results() -> bool:
 			_failure_message = "Client %d did not exercise delayed movement intents" % client_slot
 			return false
 	return true
+
+
+func _verify_world_results() -> bool:
+	var host_ready: Variant = _read_result("host.ready.json")
+	if not host_ready is Dictionary:
+		_failure_message = "Host did not publish its authoritative terrain configuration"
+		return false
+	for client_slot: int in range(1, CLIENT_COUNT + 1):
+		var client_ready: Variant = _read_result("client-%d.ready.json" % client_slot)
+		if not client_ready is Dictionary:
+			_failure_message = (
+				"Client %d did not publish terrain synchronization results" % client_slot
+			)
+			return false
+		if (
+			client_ready.get("terrain_seed") != host_ready.get("terrain_seed")
+			or client_ready.get("world_config") != host_ready.get("world_config")
+			or client_ready.get("terrain_fingerprint") != host_ready.get("terrain_fingerprint")
+			or int(client_ready.get("loaded_chunk_count", 0)) <= 0
+		):
+			_failure_message = (
+				"Client %d generated terrain that differs from the host" % client_slot
+			)
+			return false
+		if (
+			int(client_ready.get("requested_seed", host_ready["terrain_seed"]))
+			== int(host_ready["terrain_seed"])
+		):
+			_failure_message = (
+				"Client %d did not test host-overridden terrain seed synchronization" % client_slot
+			)
+			return false
+	return true
+
+
+func _read_result(file_name: String) -> Variant:
+	var path: String = _run_directory.path_join(file_name)
+	if not FileAccess.file_exists(path):
+		return null
+	return JSON.parse_string(FileAccess.get_file_as_string(path))
 
 
 func _verify_camera_results() -> bool:
@@ -243,7 +292,7 @@ func _start_child(
 	arguments.append("--e2e-result-dir=%s" % _run_directory)
 	arguments.append("--port=%d" % port)
 	arguments.append("--max-players=6")
-	arguments.append("--seed=8675309")
+	arguments.append("--seed=%d" % (HOST_WORLD_SEED if role == "host" else CLIENT_REQUESTED_SEED))
 	return OS.create_process(OS.get_executable_path(), arguments, false)
 
 

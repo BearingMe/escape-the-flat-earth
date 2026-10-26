@@ -3,7 +3,7 @@ extends Node3D
 const E2E_TIMEOUT_SEC: float = 18.0
 const E2E_HOST_SETTLE_SEC: float = 0.75
 const E2E_CAMERA_SETTLE_SEC: float = 1.0
-const E2E_GROUND_SETTLE_SEC: float = 2.0
+const E2E_GROUND_SETTLE_SEC: float = 5.0
 
 var _e2e_role: String = ""
 var _e2e_result_dir: String = ""
@@ -23,9 +23,11 @@ var _e2e_position_converged: bool = false
 var _e2e_camera_wait_elapsed: float = 0.0
 var _e2e_ground_wait_elapsed: float = 0.0
 var _e2e_grounded_at_spawn: bool = false
+var _e2e_requested_seed: int = 0
 
 @onready var _players: Node3D = %Players
 @onready var _spawner: MultiplayerSpawner = %Spawner
+@onready var _terrain_streamer: TerrainStreamer = %TerrainStreamer
 
 
 func _ready() -> void:
@@ -44,8 +46,15 @@ func _ready() -> void:
 		arguments, "--max-players", World.config.max_players
 	)
 	var seed_value: int = _read_integer_argument(arguments, "--seed", World.config.world_seed)
+	_e2e_requested_seed = seed_value
+	World.config.max_players = max_players
 	World.set_seed(seed_value)
 	var join_address: String = _read_string_argument(arguments, "--join", "")
+	if join_address.is_empty():
+		var terrain_result: Error = _terrain_streamer.configure_host_world()
+		if terrain_result != OK:
+			Log.error("world.terrain_configuration_failed", {"error": terrain_result})
+			return
 	var result: Error = (
 		Net.join(join_address, port) if not join_address.is_empty() else Net.host(port, max_players)
 	)
@@ -63,7 +72,16 @@ func _ready() -> void:
 			{"role": "client" if not join_address.is_empty() else "host", "error": result}
 		)
 	if _e2e_role == "host":
-		_write_e2e_result("host.ready.json", {"status": "ready", "port": port})
+		_write_e2e_result(
+			"host.ready.json",
+			{
+				"status": "ready",
+				"port": port,
+				"terrain_seed": World.config.world_seed,
+				"world_config": World.config.to_dictionary(),
+				"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO)
+			}
+		)
 
 
 func _process(delta: float) -> void:
@@ -150,6 +168,9 @@ func _process_e2e_host(delta: float) -> void:
 			"grounded_at_spawn": _e2e_grounded_at_spawn,
 			"remaining_players_grounded": _all_players_grounded(),
 			"host_resolved_movement": true,
+			"terrain_seed": World.config.world_seed,
+			"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
+			"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count(),
 			"player_positions": _snapshot_player_positions()
 		}
 	)
@@ -215,7 +236,12 @@ func _snapshot_player_positions() -> Dictionary:
 func _process_e2e_client(delta: float) -> void:
 	if Net.session_status == "connected" and not _e2e_client_ready_written:
 		var local_observer: ObserverPlayer = _find_local_observer()
-		if local_observer != null and local_observer.has_applied_e2e_camera_look():
+		if (
+			local_observer != null
+			and local_observer.has_applied_e2e_camera_look()
+			and _terrain_streamer.is_world_configured()
+			and _terrain_streamer.get_loaded_chunk_count() > 0
+		):
 			_e2e_local_peer_id = local_observer.peer_id
 			var camera_ownership_valid: bool = _camera_ownership_is_valid(_e2e_local_peer_id)
 			if not camera_ownership_valid:
@@ -230,7 +256,12 @@ func _process_e2e_client(delta: float) -> void:
 					"peer_id": local_observer.peer_id,
 					"camera_ownership_valid": camera_ownership_valid,
 					"camera_look_applied": true,
-					"movement_intent_delay_msec": local_observer.e2e_intent_delay_msec()
+					"movement_intent_delay_msec": local_observer.e2e_intent_delay_msec(),
+					"terrain_seed": World.config.world_seed,
+					"requested_seed": _e2e_requested_seed,
+					"world_config": World.config.to_dictionary(),
+					"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
+					"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count()
 				}
 			)
 	if _e2e_drop_after_connect and _e2e_client_ready_written:
@@ -330,9 +361,16 @@ func _write_e2e_result(file_name: String, result: Dictionary) -> bool:
 func _finish_e2e_failure(stage: String) -> void:
 	var player_ids: Array[int] = []
 	var movement_distances: Dictionary = {}
+	var player_states: Dictionary = {}
 	for child: Node in _players.get_children():
 		if child is ObserverPlayer:
 			player_ids.append(child.peer_id)
+			player_states[str(child.peer_id)] = {
+				"position":
+				[child.global_position.x, child.global_position.y, child.global_position.z],
+				"velocity": [child.velocity.x, child.velocity.y, child.velocity.z],
+				"grounded": child.is_on_floor()
+			}
 			if _e2e_initial_positions.has(child.peer_id):
 				movement_distances[child.peer_id] = child.global_position.distance_to(
 					_e2e_initial_positions[child.peer_id]
@@ -346,7 +384,9 @@ func _finish_e2e_failure(stage: String) -> void:
 			"player_count": Net.player_count(),
 			"full_capacity_seen": _e2e_full_capacity_seen,
 			"peer_ids": player_ids,
-			"movement_distances": movement_distances
+			"movement_distances": movement_distances,
+			"player_states": player_states,
+			"loaded_chunk_coordinates": _terrain_streamer.get_loaded_chunk_coordinates()
 		}
 	)
 	Net.end_session()
