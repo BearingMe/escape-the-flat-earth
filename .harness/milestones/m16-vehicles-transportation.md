@@ -17,7 +17,7 @@ Turn player-built contraptions into practical or catastrophically impractical tr
 ## Validation
 - Players can build, enter, drive, exit, and repair a basic vehicle.
 - Multiple players can ride the same vehicle.
-- Acceleration, braking, and steering respond to terrain and local gravity.
+- Acceleration, braking, and steering respond to terrain and standard global-down gravity only.
 - Engines consume configured fuel; detached parts behave consistently.
 - Passengers do not desynchronize or fall through the vehicle under normal operation.
 - Damaged and abandoned vehicles are safely handled through save/load.

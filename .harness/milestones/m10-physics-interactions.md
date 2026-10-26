@@ -6,7 +6,7 @@
 Make handling everyday objects enjoyable and chaotic in co-op.
 
 ## Scope
-- Physical pickups with mass, momentum, friction, collision, and local gravity.
+- Physical pickups with mass, momentum, friction, collision, and standard global-down gravity.
 - Grab, carry, push, pull, drag, and throw.
 - One-handed and two-handed interactions where useful.
 - Two players can manipulate the same object.
@@ -15,7 +15,7 @@ Make handling everyday objects enjoyable and chaotic in co-op.
 - Network-safe cleanup when players disconnect while holding objects.
 
 ## Validation
-- Objects fall, slide, and roll correctly at center, rim, and underside.
+- Objects fall, slide, and roll correctly on the upper surface and fall downward when leaving the disk; the rim and underside do not attract them.
 - Heavier objects are harder to move and retain momentum as expected.
 - Two players can carry/manipulate the same object without duplicates.
 - Rapid grabs/releases do not create competing owners or unstable joints.

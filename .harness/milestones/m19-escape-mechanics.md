@@ -6,9 +6,9 @@
 Convert "reach the rim" into an actual engineering and traversal endgame.
 
 ## Scope
-- Define what counts as escape in terms of leaving the disk's environment/gravitational influence.
+- Define escape as host-confirmed travel beyond the disk's outer boundary, not leaving a custom gravity field.
 - Support multiple plausible attempts rather than a single scripted key/door.
-- Integrate vehicles, machines, climbing, weather, supplies, and gravity into escape attempts.
+- Integrate vehicles, machines, climbing, weather, supplies, and standard global-down gravity into escape attempts.
 - Provide buildable or discoverable endgame equipment and sufficient resources.
 - Make rim/ice wall traversal a meaningful final obstacle.
 - Detect meaningful success/failure from authoritative world state.
@@ -16,7 +16,7 @@ Convert "reach the rim" into an actual engineering and traversal endgame.
 
 ## Validation
 - At least two materially different escape strategies can succeed in test scenarios.
-- Gravity and physics remain consistent during attempts; no arbitrary edge teleport.
+- Global-down gravity and physics remain consistent during attempts; no arbitrary edge teleport.
 - The game detects an authentic escape without a fragile single trigger volume.
 - Escaping works with multiple players, including passengers and separated teammates.
 - Failed attempts leave the world in a valid, playable state.
@@ -24,7 +24,7 @@ Convert "reach the rim" into an actual engineering and traversal endgame.
 
 ## Arowana notes
 - AGENTS.md canon: the first player off the disc ends the match; if everyone dies trying, last one standing wins. "Who escapes" is a race outcome, not a shared ceremony — rivals may cooperate mid-run, but the finish line is zero-sum.
-- Escape is a physics fact, not a trigger volume: beyond-gravity-influence detection, computed by the host. No teleport, no fragile Area3D at the rim.
+- Escape is a physics fact, not a trigger volume: the host detects travel beyond the disk boundary. No custom gravity-influence threshold, teleport, or fragile Area3D at the rim.
 - Two materially different strategies, e.g. a built machine (M15/M16) vs an endurance climb (M11/M17) — and whatever cursed third thing the community invents.
 
 ## References — search before building (mempalace wing `.references`, filter by room)

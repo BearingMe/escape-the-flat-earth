@@ -9,7 +9,7 @@ Stabilize the complete world foundation before adding gameplay systems.
 - Audit boundaries between gravity, networking, generation, terrain, rendering, and controls.
 - Remove unnecessary coupling, dead code, temporary workarounds, and duplicated logic.
 - Review seed handling, authority rules, entity identifiers, and lifecycle cleanup.
-- Add focused unit and integration tests for numerical gravity, deterministic generation, and multiplayer joining.
+- Add focused tests for the configured 9.8 m/s² global-down gravity, deterministic generation, and multiplayer joining; no finite-disk gravity math is in scope.
 - Profile terrain generation, chunk streaming, rendering, physics, CPU, GPU, and memory.
 - Fix critical defects and optimize only measured bottlenecks.
 - Document architecture, world generation, gravity assumptions, and operational setup.
@@ -18,7 +18,7 @@ Stabilize the complete world foundation before adding gameplay systems.
 - All acceptance checks from M1–M6 still pass.
 - Clean checkout, documented setup, build, and multiplayer launch succeed.
 - Full-disk traversal and two-player distant exploration work without crashes.
-- No known critical collision, gravity, authority, or world-generation defects.
+- No known critical collision, standard-gravity, authority, or world-generation defects.
 - No unexplained persistent memory growth or major frame-time spikes in measured test routes.
 - Architecture documentation matches the actual code.
 

@@ -6,7 +6,7 @@
 Make the disk's geography itself a source of increasingly absurd survival problems.
 
 ## Scope
-- Hazards derived from terrain, local gravity, and weather.
+- Hazards derived from terrain, standard global-down gravity, and weather; no radial or horizontal gravity effects.
 - Falls, unstable ground, cliffs, extreme cold, strong winds, and storms.
 - Dangerous rim and ice wall traversal conditions.
 - Hazard mitigation through equipment, construction, and teamwork.

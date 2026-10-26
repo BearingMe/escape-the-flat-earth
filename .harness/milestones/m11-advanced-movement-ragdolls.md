@@ -10,13 +10,13 @@ Support physical comedy and cooperative traversal.
 - Falling, stumbling, and ragdoll state transitions.
 - Grab, pull, drag, or rescue other players.
 - Recovery from ragdoll and temporary incapacitation.
-- Physical movement response to carried equipment and local gravity.
+- Physical movement response to carried equipment under standard global-down gravity.
 - Multiplayer synchronization of player interaction states.
 
 ## Validation
 - Players can climb and traverse intended obstacles.
 - One player can help another recover from a fall or ledge.
-- Ragdolls respond to collision and gravity without physics explosions.
+- Ragdolls respond to collision and 9.8 m/s² global-down gravity without physics explosions.
 - Entering/exiting ragdoll does not permanently break controls.
 - Interaction and recovery remain synchronized for all clients.
 - No persistent ownership locks after death, disconnect, or recovery.

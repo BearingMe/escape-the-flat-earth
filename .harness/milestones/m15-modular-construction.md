@@ -17,7 +17,7 @@ Let players assemble physical structures and absurd contraptions out of parts.
 ## Validation
 - Players can collaboratively create and modify the same assembly.
 - Connectors and joints hold under expected loads and break past tolerances.
-- Builds respond to local gravity on the disk and near its rim.
+- Builds remain stable under global-down gravity on the upper surface; gravity does not hold them to the vertical rim or underside.
 - Concurrent edits do not duplicate parts or corrupt the assembly graph.
 - Saved builds recreate their expected components and joint relationships.
 - Invalid/unstable builds fail gracefully instead of crashing the session.
