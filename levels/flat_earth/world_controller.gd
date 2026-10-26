@@ -80,7 +80,10 @@ func _ready() -> void:
 				"terrain_seed": World.config.world_seed,
 				"world_config": World.config.to_dictionary(),
 				"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
-				"biome_samples": _terrain_biome_snapshot()
+				"biome_samples": _terrain_biome_snapshot(),
+				"population_fingerprint":
+				_terrain_streamer.get_population_fingerprint(Vector2i.ZERO),
+				"population_count": _terrain_streamer.get_population_count(Vector2i.ZERO)
 			}
 		)
 
@@ -195,6 +198,7 @@ func _process_e2e_host(delta: float) -> void:
 			"terrain_seed": World.config.world_seed,
 			"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
 			"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count(),
+			"active_static_prop_count": World.get_active_static_prop_count(),
 			"player_positions": _snapshot_player_positions()
 		}
 	)
@@ -286,6 +290,10 @@ func _process_e2e_client(delta: float) -> void:
 					"world_config": World.config.to_dictionary(),
 					"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
 					"biome_samples": _terrain_biome_snapshot(),
+					"population_fingerprint":
+					_terrain_streamer.get_population_fingerprint(Vector2i.ZERO),
+					"population_count": _terrain_streamer.get_population_count(Vector2i.ZERO),
+					"local_static_prop_registry_count": World.get_active_static_prop_count(),
 					"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count()
 				}
 			)

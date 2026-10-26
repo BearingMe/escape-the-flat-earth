@@ -196,10 +196,10 @@ func _verify_world_results() -> bool:
 	if not host_ready is Dictionary:
 		_failure_message = "Host did not publish its authoritative terrain configuration"
 		return false
-	var host_biome_samples: Variant = host_ready.get("biome_samples")
-	if not host_biome_samples is Dictionary or host_biome_samples.size() < 5:
-		_failure_message = "Host did not publish deterministic biome samples"
+	if not _verify_host_population(host_ready):
 		return false
+	var host_biome_samples: Variant = host_ready.get("biome_samples")
+	var host_population_fingerprint: int = int(host_ready.get("population_fingerprint", 0))
 	for client_slot: int in range(1, CLIENT_COUNT + 1):
 		var client_ready: Variant = _read_result("client-%d.ready.json" % client_slot)
 		if not client_ready is Dictionary:
@@ -212,6 +212,12 @@ func _verify_world_results() -> bool:
 			or client_ready.get("world_config") != host_ready.get("world_config")
 			or client_ready.get("terrain_fingerprint") != host_ready.get("terrain_fingerprint")
 			or client_ready.get("biome_samples") != host_biome_samples
+			or int(client_ready.get("population_fingerprint", 0)) != host_population_fingerprint
+			or (
+				int(client_ready.get("population_count", 0))
+				!= int(host_ready.get("population_count", 0))
+			)
+			or int(client_ready.get("local_static_prop_registry_count", -1)) != 0
 			or int(client_ready.get("loaded_chunk_count", 0)) <= 0
 		):
 			_failure_message = (
@@ -226,6 +232,24 @@ func _verify_world_results() -> bool:
 				"Client %d did not test host-overridden terrain seed synchronization" % client_slot
 			)
 			return false
+	return true
+
+
+func _verify_host_population(host_ready: Dictionary) -> bool:
+	var host_biome_samples: Variant = host_ready.get("biome_samples")
+	if not host_biome_samples is Dictionary or host_biome_samples.size() < 5:
+		_failure_message = "Host did not publish deterministic biome samples"
+		return false
+	if (
+		int(host_ready.get("population_fingerprint", 0)) <= 0
+		or int(host_ready.get("population_count", 0)) <= 0
+	):
+		_failure_message = "Host did not generate a deterministic chunk prop population"
+		return false
+	var host_result: Variant = _read_result("host.result.json")
+	if not host_result is Dictionary or int(host_result.get("active_static_prop_count", 0)) <= 0:
+		_failure_message = "Host did not retain authority over streamed static prop identities"
+		return false
 	return true
 
 

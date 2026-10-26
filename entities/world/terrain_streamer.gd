@@ -6,6 +6,7 @@ const MAX_CHUNK_CREATIONS_PER_FRAME: int = 2
 const STREAM_REFRESH_INTERVAL_SEC: float = 0.2
 
 var _generator: DiskTerrainGenerator
+var _population_generator: TerrainPopulationGenerator
 var _config_signature: String = ""
 var _loaded_chunks: Dictionary = {}
 var _empty_chunks: Dictionary = {}
@@ -21,6 +22,12 @@ func _process(delta: float) -> void:
 		_refresh_elapsed = STREAM_REFRESH_INTERVAL_SEC
 		_refresh_from_network_players()
 	_load_pending_chunks()
+
+
+func _exit_tree() -> void:
+	for coordinate: Vector2i in get_loaded_chunk_coordinates():
+		_unregister_static_prop_chunk(coordinate)
+	_loaded_chunks.clear()
 
 
 func configure_host_world() -> Error:
@@ -55,6 +62,18 @@ func get_world_config_signature() -> String:
 
 func get_chunk_fingerprint(chunk_coordinate: Vector2i) -> int:
 	return _generator.chunk_fingerprint(chunk_coordinate) if _ensure_generator() else 0
+
+
+func get_population_fingerprint(chunk_coordinate: Vector2i) -> int:
+	if not _ensure_generator():
+		return 0
+	return _population_generator.build_chunk_population(chunk_coordinate).fingerprint
+
+
+func get_population_count(chunk_coordinate: Vector2i) -> int:
+	if not _ensure_generator():
+		return 0
+	return _population_generator.build_chunk_population(chunk_coordinate).size()
 
 
 func is_world_configured() -> bool:
@@ -104,6 +123,13 @@ func _ensure_generator() -> bool:
 	_generator = DiskTerrainGenerator.new()
 	if _generator.configure(World.config, World.config.world_seed) != OK:
 		_generator = null
+		_population_generator = null
+		_config_signature = ""
+		return false
+	_population_generator = TerrainPopulationGenerator.new()
+	if _population_generator.configure(World.config, _generator, World.config.world_seed) != OK:
+		_generator = null
+		_population_generator = null
 		_config_signature = ""
 		return false
 	_config_signature = next_signature
@@ -134,6 +160,7 @@ func _reconcile_chunks(desired_chunks: Array[Vector2i]) -> void:
 			continue
 		var chunk: TerrainChunk = _loaded_chunks[coordinate] as TerrainChunk
 		_loaded_chunks.erase(coordinate)
+		_unregister_static_prop_chunk(coordinate)
 		if is_instance_valid(chunk):
 			chunk.queue_free()
 	for empty_coordinate: Vector2i in _empty_chunks.keys():
@@ -158,7 +185,7 @@ func _load_pending_chunks() -> void:
 		if chunk == null:
 			Log.error("world.terrain_chunk_instantiation_failed", {"coordinate": coordinate})
 			continue
-		var result: Error = chunk.configure(coordinate, _generator)
+		var result: Error = chunk.configure(coordinate, _generator, _population_generator)
 		if result == ERR_DOES_NOT_EXIST:
 			_empty_chunks[coordinate] = true
 			chunk.free()
@@ -170,6 +197,17 @@ func _load_pending_chunks() -> void:
 			)
 			chunk.free()
 			continue
+		if World.has_host_authority():
+			var registration_result: Error = World.register_static_prop_chunk(
+				coordinate, chunk.get_population_data()
+			)
+			if registration_result != OK:
+				Log.error(
+					"world.static_prop_registration_failed",
+					{"coordinate": coordinate, "error": registration_result}
+				)
+				chunk.free()
+				continue
 		chunk.name = "Chunk_%d_%d" % [coordinate.x, coordinate.y]
 		add_child(chunk)
 		_loaded_chunks[coordinate] = chunk
@@ -177,9 +215,22 @@ func _load_pending_chunks() -> void:
 
 
 func _clear_loaded_chunks() -> void:
-	for chunk_value: Variant in _loaded_chunks.values():
+	for coordinate: Vector2i in get_loaded_chunk_coordinates():
+		var chunk_value: Variant = _loaded_chunks[coordinate]
 		var chunk: TerrainChunk = chunk_value as TerrainChunk
+		_unregister_static_prop_chunk(coordinate)
 		if is_instance_valid(chunk):
 			chunk.queue_free()
 	_loaded_chunks.clear()
 	_pending_chunk_coordinates.clear()
+
+
+func _unregister_static_prop_chunk(chunk_coordinate: Vector2i) -> void:
+	if not World.has_host_authority():
+		return
+	var result: Error = World.unregister_static_prop_chunk(chunk_coordinate)
+	if result != OK:
+		Log.error(
+			"world.static_prop_unregistration_failed",
+			{"coordinate": chunk_coordinate, "error": result}
+		)

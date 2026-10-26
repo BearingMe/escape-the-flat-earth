@@ -14,3 +14,7 @@ elevation_min_ratio = 0.0
 elevation_max_ratio = 0.32
 elevation_curve = 1.55
 detail_strength = 0.08
+tree_density = 0.02
+shrub_density = 0.24
+rock_density = 0.08
+debris_density = 0.1

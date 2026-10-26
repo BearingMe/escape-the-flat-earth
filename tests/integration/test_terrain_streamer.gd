@@ -4,17 +4,22 @@ const TERRAIN_STREAMER_SCENE: PackedScene = preload("res://entities/world/terrai
 const DISK_SCENE: PackedScene = preload("res://entities/world/disk.tscn")
 
 var _original_world_config: WorldConfig
+var _original_session_role: String
 var _active_observer: ObserverPlayer
 
 
 func before_each() -> void:
 	_original_world_config = World.config
+	_original_session_role = Net.session_role
 	World.config = World.config.duplicate(true) as WorldConfig
 	World.config.terrain_cells_per_chunk = 4
 	World.config.terrain_view_radius_chunks = 0
 
 
 func after_each() -> void:
+	if Net.session_role == "host":
+		World.clear_static_prop_registry()
+	Net.session_role = _original_session_role
 	World.config = _original_world_config
 	_active_observer = null
 
@@ -51,6 +56,47 @@ func test_desired_chunks_are_deduplicated_for_players_in_shared_region() -> void
 	assert_eq(distant.size(), 2)
 	assert_true(distant.has(Vector2i(0, 0)))
 	assert_true(distant.has(Vector2i(8, 8)))
+
+
+func test_chunk_population_batches_and_host_registry_follow_streaming() -> void:
+	World.set_seed(17320508)
+	Net.session_role = "host"
+	var streamer: TerrainStreamer = TERRAIN_STREAMER_SCENE.instantiate() as TerrainStreamer
+	autofree(streamer)
+	streamer.set_process(false)
+	add_child(streamer)
+	assert_eq(streamer.configure_host_world(), OK)
+	var original_fingerprint: int = streamer.get_population_fingerprint(Vector2i.ZERO)
+	var original_population_count: int = streamer.get_population_count(Vector2i.ZERO)
+	assert_gt(original_population_count, 0)
+	streamer.update_streaming_for_positions([Vector3(10.0, 0.0, 10.0)])
+	var original_chunk: TerrainChunk = streamer.get_node("Chunk_0_0") as TerrainChunk
+	assert_not_null(original_chunk)
+	if World.has_host_authority():
+		assert_eq(World.get_active_static_prop_count(), original_population_count)
+		var first_prop_id: String = original_chunk.get_population_data().stable_ids[0]
+		var first_prop_record: Dictionary = World.get_active_static_prop_record(first_prop_id)
+		assert_eq(first_prop_record.get("state"), "static")
+		assert_eq(first_prop_record.get("chunk"), Vector2i.ZERO)
+	var population_view: TerrainPopulationView = (
+		original_chunk.get_node("PopulationView") as TerrainPopulationView
+	)
+	assert_not_null(population_view)
+	assert_gt(population_view.get_child_count(), 0)
+	for visual_batch: Node in population_view.get_children():
+		assert_true(visual_batch is MultiMeshInstance3D)
+		assert_gt((visual_batch as MultiMeshInstance3D).multimesh.instance_count, 0)
+	streamer.update_streaming_for_positions([Vector3(1040.0, 0.0, 1040.0)])
+	assert_eq(streamer.get_loaded_chunk_coordinates(), [Vector2i(8, 8)])
+	assert_true(original_chunk.is_queued_for_deletion())
+	assert_eq(streamer.get_loaded_chunk_count(), 1)
+	assert_not_null(streamer.get_node_or_null("Chunk_8_8"))
+	if World.has_host_authority():
+		assert_eq(
+			World.get_active_static_prop_count(), streamer.get_population_count(Vector2i(8, 8))
+		)
+	assert_eq(streamer.get_population_fingerprint(Vector2i.ZERO), original_fingerprint)
+	assert_eq(streamer.get_population_count(Vector2i.ZERO), original_population_count)
 
 
 func test_spawned_character_lands_on_generated_heightfield_collision() -> void:

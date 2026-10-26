@@ -83,6 +83,8 @@ func join(address: String, port: int = DEFAULT_PORT) -> Error:
 
 func end_session() -> void:
 	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	if World.has_host_authority():
+		World.clear_static_prop_registry()
 	if peer is ENetMultiplayerPeer:
 		peer.close()
 	multiplayer.multiplayer_peer = null
