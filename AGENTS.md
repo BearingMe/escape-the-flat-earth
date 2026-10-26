@@ -40,6 +40,7 @@ ui/          # menu/ (main menu, host/join), hud/ (health, build menu)
 tests/       # GUT tests, mirroring source folders
 .opencode/   # OpenCode project skills (mempalace setup). Committed.
 .references/ # Local-only reference vault (7 repos + analysis) mirroring the mempalace `.references` wing. Gitignored — never commit.
+.harness/    # Progress protocol: milestones/ (goals) + checkpoints/ (progress). Committed.
 ```
 
 **Boundaries:**
@@ -66,6 +67,12 @@ Two memory systems are available; the split is strict, never cross them:
 - **agentmemory** — Arowana work memory: session observations, decisions, bugs/gotchas, lessons, per-file history. Search it before redoing past Arowana work; save decisions and lessons there as the project evolves.
 - **mempalace** — external reference corpus: the `.references/` vault, mined into the `.references` wing (rooms = one per reference project, underscore names like `modu_vehicle`). Search it before browsing `source/` folders directly: MCP `mempalace_search({ query, room })` — filter by **room only**, never by wing (the wing name `.references` is rejected by MCP validation; room names are unique palace-wide so room filtering is equivalent). CLI fallback: `mempalace search "query" --room <project>`.
 - Never write Arowana session state into mempalace, and never search agentmemory for reference-repo content. Other mempalace wings belong to other projects — always scope queries to the `.references` wing.
+
+## Progress Tracking
+No task lists. Progress lives in `.harness/` (see its README):
+- `milestones/` — what we want to reach; one file per milestone, written when a goal is set.
+- `checkpoints/` — our progress; one file per checkpoint, written as work lands.
+Both are empty until the first milestone is cut.
 
 ## Workflow
 1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem. For anything terrain-, vehicle-, grab/throw-, or netcode-shaped, search mempalace (see Memory Systems) for a proven reference implementation before writing from scratch.
