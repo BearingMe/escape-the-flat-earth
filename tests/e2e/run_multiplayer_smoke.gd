@@ -27,7 +27,7 @@ func _run() -> void:
 		print(
 			(
 				"M1 multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
-				+ "host-resolved movement, disconnect cleanup, and session teardown."
+				+ "exclusive local cameras, host-resolved movement, disconnect cleanup, and teardown."
 			)
 		)
 		quit(0)
@@ -134,9 +134,18 @@ func _verify_results() -> bool:
 	if not _result_passed("host.result.json"):
 		_failure_message = "Host scenario result was not passing"
 		return false
+	if not _result_has_true("host.result.json", "camera_ownership_valid"):
+		_failure_message = "Host did not retain exclusive ownership of its local camera"
+		return false
 	if not _result_passed("client-%d.drop.json" % CLIENT_COUNT):
 		_failure_message = "Disconnecting client result was not passing"
 		return false
+	for client_slot: int in range(1, CLIENT_COUNT + 1):
+		if not _result_has_true("client-%d.ready.json" % client_slot, "camera_ownership_valid"):
+			_failure_message = (
+				"Client %d did not retain exclusive ownership of its local camera" % client_slot
+			)
+			return false
 	for client_slot: int in range(1, CLIENT_COUNT):
 		if not _result_passed("client-%d.result.json" % client_slot):
 			_failure_message = "Client %d did not report clean disconnect" % client_slot
@@ -215,6 +224,14 @@ func _result_passed(file_name: String) -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	return parsed is Dictionary and parsed.get("status") == "passed"
+
+
+func _result_has_true(file_name: String, key: String) -> bool:
+	var path: String = _run_directory.path_join(file_name)
+	if not FileAccess.file_exists(path):
+		return false
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed is Dictionary and parsed.get(key) == true
 
 
 func _fail(message: String) -> void:

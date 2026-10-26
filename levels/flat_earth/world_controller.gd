@@ -99,10 +99,13 @@ func _process_e2e_host(delta: float) -> void:
 			get_tree().quit(0)
 		return
 	if Net.player_count() >= World.config.max_players and not _e2e_full_capacity_seen:
-		_e2e_full_capacity_seen = true
-		for child: Node in _players.get_children():
-			if child is ObserverPlayer and child.peer_id != 1:
-				_e2e_initial_positions[child.peer_id] = child.global_position
+		if not _camera_ownership_is_valid(1):
+			_finish_e2e_failure("camera_ownership")
+		else:
+			_e2e_full_capacity_seen = true
+			for child: Node in _players.get_children():
+				if child is ObserverPlayer and child.peer_id != 1:
+					_e2e_initial_positions[child.peer_id] = child.global_position
 	if not _e2e_full_capacity_seen or Net.player_count() != World.config.max_players - 1:
 		return
 	var drop_result_path: String = _e2e_result_dir.path_join(
@@ -130,7 +133,8 @@ func _process_e2e_host(delta: float) -> void:
 			"remaining_total": Net.player_count(),
 			"dropped_peer_removed": true,
 			"dropped_peer_id": dropped_peer_id,
-			"remaining_clients_moved": true
+			"remaining_clients_moved": true,
+			"camera_ownership_valid": true
 		}
 	)
 	_e2e_host_settle = E2E_HOST_SETTLE_SEC
@@ -157,10 +161,18 @@ func _process_e2e_client(delta: float) -> void:
 		var local_observer: ObserverPlayer = _find_local_observer()
 		if local_observer != null:
 			_e2e_local_peer_id = local_observer.peer_id
+			var camera_ownership_valid: bool = _camera_ownership_is_valid(_e2e_local_peer_id)
 			_e2e_client_ready_written = _write_e2e_result(
 				"client-%d.ready.json" % _e2e_client_slot,
-				{"status": "ready", "peer_id": local_observer.peer_id}
+				{
+					"status": "ready" if camera_ownership_valid else "failed",
+					"peer_id": local_observer.peer_id,
+					"camera_ownership_valid": camera_ownership_valid
+				}
 			)
+			if not camera_ownership_valid:
+				_finish_e2e_failure("camera_ownership")
+				return
 	if _e2e_drop_after_connect and _e2e_client_ready_written:
 		_e2e_drop_elapsed += delta
 		if _e2e_drop_elapsed >= 2.0:
@@ -203,6 +215,19 @@ func _find_local_observer() -> ObserverPlayer:
 		if child is ObserverPlayer and child.peer_id == multiplayer.get_unique_id():
 			return child
 	return null
+
+
+func _camera_ownership_is_valid(local_peer_id: int) -> bool:
+	var active_camera_count: int = 0
+	var local_camera_is_active: bool = false
+	for child: Node in _players.get_children():
+		if not child is ObserverPlayer:
+			continue
+		if child.is_camera_current():
+			active_camera_count += 1
+			if child.peer_id == local_peer_id:
+				local_camera_is_active = true
+	return local_camera_is_active and active_camera_count == 1
 
 
 func _write_e2e_result(file_name: String, result: Dictionary) -> bool:
