@@ -1,6 +1,6 @@
 # M5 — Five Biomes
 
-**Phase:** World · **Depends on:** M4 · **Status:** in progress
+**Phase:** World · **Depends on:** M4 · **Status:** complete
 
 ## Goal
 Partition the disk into five distinct procedural environments.
@@ -17,12 +17,12 @@ Partition the disk into five distinct procedural environments.
 - Ensure the ice wall surrounds the full perimeter while allowing future escape challenges.
 
 ## Validation
-- All five biomes are present and distinguishable.
-- Biome placement is reproducible from the same seed.
-- Biome boundaries do not create unintended holes or terrain discontinuities.
-- Ice wall coverage is continuous around the perimeter.
-- Host, client, and late joiner agree on biome identity at sampled coordinates.
-- Terrain and collision remain traversable where intended.
+- [x] All five biomes are reachable and distinct biome profiles produce distinct terrain colors.
+- [x] Biome weights, heights, and chunk fingerprints are reproducible from the same seed.
+- [x] Blended boundaries stay continuous; adjacent chunks share height, normal, and color samples.
+- [x] Ice Wall identity and raised terrain continue around the full perimeter.
+- [x] Host and all clients, including late joiners with a different requested seed, agree on sampled biome IDs.
+- [x] Terrain collision and player grounding remain functional.
 
 ## Implementation handoff
 
