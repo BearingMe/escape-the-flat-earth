@@ -38,6 +38,8 @@ entities/    # player/, weapons/, npcs/, props/ — each folder holds its .tscn 
 levels/      # flat_earth/ (the disc, ice wall, firmament) + small test arenas
 ui/          # menu/ (main menu, host/join), hud/ (health, build menu)
 tests/       # GUT tests, mirroring source folders
+.opencode/   # OpenCode project skills (mempalace setup). Committed.
+.references/ # Local-only reference vault (7 repos + analysis) mirroring the mempalace `.references` wing. Gitignored — never commit.
 ```
 
 **Boundaries:**
@@ -66,7 +68,7 @@ Two memory systems are available; the split is strict, never cross them:
 - Never write Arowana session state into mempalace, and never search agentmemory for reference-repo content. Other mempalace wings belong to other projects — always scope queries to the `.references` wing.
 
 ## Workflow
-1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem.
+1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem. For anything terrain-, vehicle-, grab/throw-, or netcode-shaped, search mempalace (see Memory Systems) for a proven reference implementation before writing from scratch.
 2. **Plan**: one feature per change, minimal blast radius.
 3. **Implement**: follow the conventions above; scenes stay text-format.
 4. **Verify**: smoke-test boot, tests, gdformat.
