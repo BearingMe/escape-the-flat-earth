@@ -1,6 +1,6 @@
 # M1 — Disk & Multiplayer Foundation
 
-**Phase:** Foundation · **Depends on:** — · **Status:** in progress
+**Phase:** Foundation · **Depends on:** — · **Status:** complete
 
 ## Goal
 Establish an explorable physical disk and a working multiplayer session as the project's foundation.
