@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://entities/player/observer.gd" id="1_observer"]
 
@@ -6,8 +6,12 @@
 radius = 1.0
 height = 2.0
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_observer"]
+radius = 0.4
+height = 1.8
+
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_observer"]
-properties/0/path = NodePath(".:position")
+properties/0/path = NodePath(".:replicated_position")
 properties/0/spawn = true
 properties/0/replication_mode = 1
 properties/1/path = NodePath(".:rotation")
@@ -16,9 +20,19 @@ properties/1/replication_mode = 1
 properties/2/path = NodePath(".:view_pitch")
 properties/2/spawn = true
 properties/2/replication_mode = 1
+properties/3/path = NodePath(".:velocity")
+properties/3/spawn = true
+properties/3/replication_mode = 1
 
-[node name="Observer" type="Node3D"]
+[node name="Observer" type="CharacterBody3D"]
+collision_layer = 2
+floor_snap_length = 0.2
+floor_max_angle = 0.785398
 script = ExtResource("1_observer")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_observer")
 
 [node name="Body" type="MeshInstance3D" parent="."]
 unique_name_in_owner = true
@@ -27,7 +41,7 @@ mesh = SubResource("SphereMesh_observer")
 
 [node name="NameLabel" type="Label3D" parent="."]
 unique_name_in_owner = true
-position = Vector3(0, 3, 0)
+position = Vector3(0, 2.3, 0)
 font_size = 64
 pixel_size = 0.01
 
@@ -40,4 +54,5 @@ far = 20000.0
 
 [node name="Synchronizer" type="MultiplayerSynchronizer" parent="."]
 root_path = NodePath("..")
+replication_interval = 0.05
 replication_config = SubResource("SceneReplicationConfig_observer")

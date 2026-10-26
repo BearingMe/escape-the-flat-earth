@@ -2,6 +2,7 @@ extends SceneTree
 
 const PROCESS_TIMEOUT_SEC: float = 35.0
 const CLIENT_COUNT: int = 5
+const SIMULATED_INTENT_DELAY_MSEC: int = 100
 
 var _process_ids: Array[int] = []
 var _run_directory: String = ""
@@ -27,7 +28,8 @@ func _run() -> void:
 		print(
 			(
 				"Multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
-				+ "local camera ownership/look, host-resolved movement, disconnect cleanup, and teardown."
+				+ "local camera ownership/look, 100 ms delayed host-resolved movement, client convergence, "
+				+ "disconnect cleanup, and teardown."
 			)
 		)
 		quit(0)
@@ -136,12 +138,46 @@ func _verify_results() -> bool:
 		return false
 	if not _verify_camera_results():
 		return false
+	if not _verify_movement_results():
+		return false
+	return _verify_disconnect_results()
+
+
+func _verify_disconnect_results() -> bool:
 	if not _result_passed("client-%d.drop.json" % CLIENT_COUNT):
 		_failure_message = "Disconnecting client result was not passing"
 		return false
 	for client_slot: int in range(1, CLIENT_COUNT):
 		if not _result_passed("client-%d.result.json" % client_slot):
 			_failure_message = "Client %d did not report clean disconnect" % client_slot
+			return false
+		if not _result_has_true(
+			"client-%d.result.json" % client_slot, "replicated_position_converged"
+		):
+			_failure_message = (
+				"Client %d did not converge to the host movement snapshot" % client_slot
+			)
+			return false
+	return true
+
+
+func _verify_movement_results() -> bool:
+	if not _result_has_true("host.result.json", "grounded_at_spawn"):
+		_failure_message = "Host did not ground all spawned characters under standard gravity"
+		return false
+	if not _result_has_true("host.result.json", "remaining_players_grounded"):
+		_failure_message = "Remaining players were not grounded after movement and disconnect"
+		return false
+	if not _result_has_true("host.result.json", "host_resolved_movement"):
+		_failure_message = "Host did not resolve remote movement intents"
+		return false
+	for client_slot: int in range(1, CLIENT_COUNT):
+		if not _result_has_number(
+			"client-%d.ready.json" % client_slot,
+			"movement_intent_delay_msec",
+			SIMULATED_INTENT_DELAY_MSEC
+		):
+			_failure_message = "Client %d did not exercise delayed movement intents" % client_slot
 			return false
 	return true
 
@@ -201,6 +237,7 @@ func _start_child(
 		arguments.append("--e2e-drop-after-connect")
 	if drive:
 		arguments.append("--e2e-drive")
+		arguments.append("--e2e-intent-delay-ms=%d" % SIMULATED_INTENT_DELAY_MSEC)
 	arguments.append("--e2e-camera-look")
 	arguments.append("--e2e-role=%s" % ("host" if role == "host" else "client"))
 	arguments.append("--e2e-result-dir=%s" % _run_directory)
@@ -245,6 +282,17 @@ func _result_has_true(file_name: String, key: String) -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	return parsed is Dictionary and parsed.get(key) == true
+
+
+func _result_has_number(file_name: String, key: String, expected: int) -> bool:
+	var path: String = _run_directory.path_join(file_name)
+	if not FileAccess.file_exists(path):
+		return false
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not parsed is Dictionary:
+		return false
+	var value: Variant = parsed.get(key)
+	return (typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT) and int(value) == expected
 
 
 func _fail(message: String) -> void:

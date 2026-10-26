@@ -3,6 +3,7 @@ extends Node3D
 const E2E_TIMEOUT_SEC: float = 18.0
 const E2E_HOST_SETTLE_SEC: float = 0.75
 const E2E_CAMERA_SETTLE_SEC: float = 1.0
+const E2E_GROUND_SETTLE_SEC: float = 2.0
 
 var _e2e_role: String = ""
 var _e2e_result_dir: String = ""
@@ -18,7 +19,10 @@ var _e2e_client_ready_written: bool = false
 var _e2e_host_result: Dictionary = {}
 var _e2e_host_result_seen: bool = false
 var _e2e_local_peer_id: int = 0
+var _e2e_position_converged: bool = false
 var _e2e_camera_wait_elapsed: float = 0.0
+var _e2e_ground_wait_elapsed: float = 0.0
+var _e2e_grounded_at_spawn: bool = false
 
 @onready var _players: Node3D = %Players
 @onready var _spawner: MultiplayerSpawner = %Spawner
@@ -111,6 +115,12 @@ func _process_e2e_host(delta: float) -> void:
 			if _e2e_camera_wait_elapsed >= E2E_CAMERA_SETTLE_SEC:
 				_finish_e2e_failure("camera_ownership")
 			return
+		if not _all_players_grounded():
+			_e2e_ground_wait_elapsed += delta
+			if _e2e_ground_wait_elapsed >= E2E_GROUND_SETTLE_SEC:
+				_finish_e2e_failure("gravity_grounding")
+			return
+		_e2e_grounded_at_spawn = true
 		_e2e_full_capacity_seen = true
 		for child: Node in _players.get_children():
 			if child is ObserverPlayer and child.peer_id != 1:
@@ -125,6 +135,7 @@ func _process_e2e_host(delta: float) -> void:
 		or not _remaining_players_moved(dropped_peer_id)
 	):
 		return
+	_stop_e2e_player_movement()
 	_write_e2e_result(
 		"host.result.json",
 		{
@@ -135,7 +146,11 @@ func _process_e2e_host(delta: float) -> void:
 			"dropped_peer_id": dropped_peer_id,
 			"remaining_clients_moved": true,
 			"camera_ownership_valid": true,
-			"camera_look_applied": true
+			"camera_look_applied": true,
+			"grounded_at_spawn": _e2e_grounded_at_spawn,
+			"remaining_players_grounded": _all_players_grounded(),
+			"host_resolved_movement": true,
+			"player_positions": _snapshot_player_positions()
 		}
 	)
 	_e2e_host_settle = E2E_HOST_SETTLE_SEC
@@ -172,6 +187,31 @@ func _remaining_players_moved(dropped_peer_id: int) -> bool:
 	return remaining_clients == World.config.max_players - 2
 
 
+func _all_players_grounded() -> bool:
+	var observer_count: int = 0
+	for child: Node in _players.get_children():
+		if not child is ObserverPlayer:
+			continue
+		observer_count += 1
+		if not child.is_on_floor():
+			return false
+	return observer_count == Net.player_count() and observer_count > 0
+
+
+func _stop_e2e_player_movement() -> void:
+	for child: Node in _players.get_children():
+		if child is ObserverPlayer:
+			child.set_movement_enabled(false)
+
+
+func _snapshot_player_positions() -> Dictionary:
+	var positions: Dictionary = {}
+	for child: Node in _players.get_children():
+		if child is ObserverPlayer:
+			positions[str(child.peer_id)] = [child.position.x, child.position.y, child.position.z]
+	return positions
+
+
 func _process_e2e_client(delta: float) -> void:
 	if Net.session_status == "connected" and not _e2e_client_ready_written:
 		var local_observer: ObserverPlayer = _find_local_observer()
@@ -189,7 +229,8 @@ func _process_e2e_client(delta: float) -> void:
 					"status": "ready" if camera_ownership_valid else "failed",
 					"peer_id": local_observer.peer_id,
 					"camera_ownership_valid": camera_ownership_valid,
-					"camera_look_applied": true
+					"camera_look_applied": true,
+					"movement_intent_delay_msec": local_observer.e2e_intent_delay_msec()
 				}
 			)
 	if _e2e_drop_after_connect and _e2e_client_ready_written:
@@ -210,18 +251,25 @@ func _process_e2e_client(delta: float) -> void:
 		if parsed_result is Dictionary:
 			_e2e_host_result = parsed_result
 			_e2e_host_result_seen = true
+	if _e2e_host_result_seen and not _e2e_position_converged:
+		_e2e_position_converged = _local_position_matches_host_snapshot()
 	if (
 		_e2e_host_result_seen
 		and Net.session_status == "server_disconnected"
 		and Net.player_count() == 0
 	):
-		var status: String = "passed" if _e2e_host_result.get("status") == "passed" else "failed"
+		var status: String = (
+			"passed"
+			if _e2e_host_result.get("status") == "passed" and _e2e_position_converged
+			else "failed"
+		)
 		_write_e2e_result(
 			"client-%d.result.json" % _e2e_client_slot,
 			{
 				"status": status,
 				"disconnected_cleanly": true,
-				"host_status": _e2e_host_result.get("status")
+				"host_status": _e2e_host_result.get("status"),
+				"replicated_position_converged": _e2e_position_converged
 			}
 		)
 		get_tree().quit(0 if status == "passed" else 1)
@@ -234,6 +282,22 @@ func _find_local_observer() -> ObserverPlayer:
 		if child is ObserverPlayer and child.peer_id == multiplayer.get_unique_id():
 			return child
 	return null
+
+
+func _local_position_matches_host_snapshot() -> bool:
+	var position_map: Variant = _e2e_host_result.get("player_positions", {})
+	if not position_map is Dictionary:
+		return false
+	var raw_position: Variant = position_map.get(str(_e2e_local_peer_id))
+	if not raw_position is Array or raw_position.size() != 3:
+		return false
+	var local_observer: ObserverPlayer = _find_local_observer()
+	if local_observer == null:
+		return false
+	var expected_position: Vector3 = Vector3(
+		float(raw_position[0]), float(raw_position[1]), float(raw_position[2])
+	)
+	return local_observer.position.distance_to(expected_position) <= 1.0
 
 
 func _camera_ownership_is_valid(local_peer_id: int) -> bool:
