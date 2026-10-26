@@ -1,6 +1,6 @@
 # M3 — Character Movement
 
-**Phase:** Foundation · **Depends on:** M1, M2 · **Status:** in progress (standard gravity scope)
+**Phase:** Foundation · **Depends on:** M1, M2 · **Status:** complete (standard gravity scope)
 
 ## Goal
 Implement reliable, multiplayer-compatible first-person movement under standard Earth gravity (9.8 m/s² along global downward Y).

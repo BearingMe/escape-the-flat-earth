@@ -1,6 +1,6 @@
 # M3 — Character Movement
 
-**Date:** 2026-10-26 · **Milestone:** M3 · **Status:** verified / pending commit
+**Date:** 2026-10-26 · **Milestone:** M3 · **Status:** complete
 
 ## Progress
 
@@ -23,4 +23,4 @@
 
 ## Handoff
 
-After committing M3 and marking it complete, begin M4. Keep the project gravity magnitude at 9.8 m/s² with direction `(0, -1, 0)`; any terrain work must not add horizontal or disk-center gravity.
+M3 was committed as `4c963fb` (`feat: add host-authoritative character movement`). Begin M4. Keep the project gravity magnitude at 9.8 m/s² with direction `(0, -1, 0)`; terrain work must not add horizontal or disk-center gravity.
