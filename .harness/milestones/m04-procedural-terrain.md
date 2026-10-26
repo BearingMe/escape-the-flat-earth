@@ -1,6 +1,6 @@
 # M4 — Procedural Terrain
 
-**Phase:** World · **Depends on:** M1, M2, M3 · **Status:** in progress
+**Phase:** World · **Depends on:** M1, M2, M3 · **Status:** complete
 
 ## Goal
 Replace the smooth disk's top surface with deterministic, streamable terrain without losing its finite shape.
