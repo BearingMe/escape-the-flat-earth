@@ -41,6 +41,7 @@ GUT discovers `test_*.gd` scripts in `unit/` and `integration/` using `.gutconfi
 - Mock clocks, external services, and nondeterministic boundaries only when needed. Do not mock host-authoritative rules or engine behavior that the test is intended to verify.
 - GUT is configured to fail on unexpected engine, GUT, and `push_error` errors. Tests for an expected error must explicitly assert the error and its user-visible/recovery behavior; never disable error tracking for an entire suite to make it pass.
 - For expected logged errors, call the operation first and then use GUT's matching `assert_engine_error()` or `assert_push_error()`; the assertion consumes the tracked error. Also assert the operation's returned failure and recovery/state behavior.
+- `Log.error()` emits through `push_error()` and therefore fails GUT unless explicitly asserted. Follow [`docs/logging.md`](logging.md); do not mute the logger/error tracker to make a test pass.
 
 ## Headless E2E requirements
 
@@ -72,3 +73,4 @@ Do not test trivial getters, constants, engine internals, or the same assertion 
 - [GUT 9.7.1 command line](https://gut.readthedocs.io/en/v9.7.1/Command-Line.html)
 - [GUT 9.7.1 creating tests](https://gut.readthedocs.io/en/v9.7.1/Creating-Tests.html)
 - [GUT 9.7.1 quick start](https://gut.readthedocs.io/en/v9.7.1/Quick-Start.html)
+- [Godot 4.7 logging](https://docs.godotengine.org/en/4.7/tutorials/scripting/logging.html)

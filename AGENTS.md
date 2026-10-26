@@ -34,13 +34,13 @@ godot --headless --path . --script res://tests/run_gut.gd  # run GUT; fails if n
 project.godot
 addons/      # Third-party plugins (Godot AI, GUT). Vendored — never hand-edit.
 assets/      # Art, audio, fonts, models. Zero code.
-autoload/    # Global singletons: net.gd (host/join/peers), game.gd (match state), events.gd (signal bus)
+autoload/    # Global singletons: Log (structured diagnostics), net.gd (host/join/peers), game.gd (match state), events.gd (signal bus)
 common/      # Shared utilities + custom Resources (.tres item/weapon data tables). Zero scenes.
 entities/    # player/, weapons/, npcs/, props/ — each folder holds its .tscn + .gd together
 levels/      # flat_earth/ (the disc, ice wall, firmament) + small test arenas
 ui/          # menu/ (main menu, host/join), hud/ (health, build menu)
 tests/       # unit/, integration/, e2e/, fixtures/, support/ — see docs/testing.md
-docs/        # Testing and error-handling conventions
+docs/        # Testing, structured logging, and error-handling conventions
 .opencode/   # OpenCode project skills (mempalace setup). Committed.
 .references/ # Local-only reference vault (7 repos + analysis) mirroring the mempalace `.references` wing. Gitignored — never commit.
 .harness/    # Progress protocol: milestones/ (goals) + checkpoints/ (progress). Committed.
@@ -63,7 +63,7 @@ docs/        # Testing and error-handling conventions
 - Signals are typed: `signal died(killer_id: int)`. Connect in code, not in the editor, when the wiring is logic.
 - Node references use `@onready` + `%` unique names, never hardcoded string paths that scene edits can break.
 - New `.tscn` files stay small and get assembled in code over deep nesting. Reference scripts/scenes by `res://` path; let `--import` generate UIDs — never invent `uid://...` strings.
-- Expected failures return typed errors/results; unexpected failures are reported once with actionable context. Assertions are for programmer invariants, never user/network input. See `docs/error-handling.md`.
+- Expected failures return typed errors/results; unexpected failures are reported once with actionable context via `Log.error()`. Assertions are for programmer invariants, never user/network input. See `docs/error-handling.md` and `docs/logging.md`.
 - New behavior includes meaningful unit/integration coverage and tests for its fallible paths; E2E covers cross-process and multiplayer behavior. See `docs/testing.md`.
 - Commit messages follow Conventional Commits only: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, etc. (e.g. `feat: add buildable prop spawner`). Never use vague messages like "update" or "stuff".
 
@@ -94,7 +94,7 @@ The M1–M21 roadmap lives in `milestones/` (imported from the flat-earth plan);
 - Never break the core loop to ship a joke. A joke that crashes the match gets fixed or cut.
 - Never add an addon, plugin, or engine dependency without explicit user approval.
 - Never commit secrets, private server IPs, or personal config (`override.cfg` is local-only).
-- Never leave `print()` debug spam in merged code; follow `docs/error-handling.md` for reporting and recovery. Assertions are for programmer invariants only.
+- Never leave ad-hoc `print()` debug spam in merged code; use `Log` for structured application diagnostics and follow `docs/error-handling.md` for recovery. Assertions are for programmer invariants only.
 
 ## Definition of Done
 Work is complete ONLY when:

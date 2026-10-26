@@ -29,6 +29,13 @@ func test_gut_version_is_pinned_and_enabled() -> void:
 	assert_true(enabled_plugins.has("res://addons/gut/plugin.cfg"))
 
 
+func test_log_autoload_is_registered() -> void:
+	var project_config: ConfigFile = ConfigFile.new()
+	assert_eq(project_config.load("res://project.godot"), OK)
+	assert_eq(project_config.get_value("autoload", "Log"), "*res://autoload/log.gd")
+	assert_true(project_config.get_value("application", "run/flush_stdout_on_print", false))
+
+
 func _load_gut_config() -> Dictionary:
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://.gutconfig.json"))
 	assert_true(parsed is Dictionary, "GUT config must be valid JSON object data.")
