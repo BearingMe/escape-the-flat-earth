@@ -8,6 +8,7 @@ func test_default_world_resource_has_valid_disc_and_session_dimensions() -> void
 	assert_eq(config.disk_radius_m, 5000.0)
 	assert_eq(config.disk_thickness_m, 500.0)
 	assert_eq(config.max_players, 6)
+	assert_eq(ProjectSettings.get_setting("physics/3d/default_gravity"), 0.0)
 
 
 func test_invalid_world_dimensions_and_player_cap_are_rejected() -> void:

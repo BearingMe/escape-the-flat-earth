@@ -20,7 +20,6 @@ config/icon="res://icon.svg"
 
 Log="*res://autoload/log.gd"
 World="*res://autoload/world.gd"
-Gravity="*res://autoload/gravity.gd"
 Net="*res://autoload/net.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
@@ -39,6 +38,7 @@ enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/gut/
 
 [physics]
 
+3d/default_gravity=0.0
 3d/physics_engine="Jolt Physics"
 
 [rendering]

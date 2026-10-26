@@ -11,12 +11,12 @@ This project is headless-first. A test that needs a visible editor or manual inp
 
 ## Test layers
 
-- **Unit:** deterministic domain logic in isolation: finite-disk gravity calculations, validation, inventory/crafting rules, damage calculations, and match-state transitions. Mock external boundaries, not the logic under test.
+- **Unit:** deterministic domain logic in isolation: world configuration, validation, inventory/crafting rules, damage calculations, and match-state transitions. Gravity calculations are out of scope until the user reopens the deferred gravity work. Mock external boundaries, not the logic under test.
 - **Integration:** real project scripts, Resources, scenes, autoloads, signals, save/load, and lifecycle interactions. Use real Godot objects where their behavior is part of the contract; keep tests headless.
 - **End-to-end:** boot independent headless game processes and exercise player-visible flows. Multiplayer E2E must include a host and at least one separate client process, verify host-owned outcomes and replicated state, and cover orderly shutdown and disconnect paths. Do not treat two peers in one process as multiplayer E2E.
 - **Regression:** not a separate test layer. When fixing a defect, add a stable reproducer at the lowest layer that catches it, then keep it permanently in that suite. Add higher-level coverage too when the defect crossed a boundary or escaped lower-level checks.
 
-The E2E runner is a planned harness component: this project does not yet have gameplay scenes or network lifecycle code to exercise. Current GUT tests protect the test configuration itself; they are not gameplay coverage. `tests/scenes/boot_smoke.tscn` only verifies that a minimal runtime scene and autoloads start headlessly; it is a boot smoke check, not behavior coverage.
+Current GUT coverage includes logging, test-harness configuration, world-config validation, and disk-scene integration. The multiplayer E2E runner verifies six total peers, host-owned observer movement, disconnect cleanup, and teardown. `tests/scenes/boot_smoke.tscn` only verifies that a minimal runtime scene and autoloads start headlessly; it is a boot smoke check, not behavior coverage.
 
 ## Repository layout
 

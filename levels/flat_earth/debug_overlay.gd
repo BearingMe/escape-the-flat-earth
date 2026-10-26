@@ -13,10 +13,8 @@ func _process(delta: float) -> void:
 		return
 	_time_until_update = UPDATE_INTERVAL_SEC
 	var local_player: ObserverPlayer = _find_local_player()
-	var gravity_vector: Vector3 = Vector3.ZERO
 	var position_text: String = "spectator unavailable"
 	if local_player != null:
-		gravity_vector = Gravity.gravity_at(local_player.global_position)
 		position_text = "position: %s" % local_player.global_position
 	var role_text: String = "offline"
 	if Net.session_role == "host":
@@ -30,7 +28,6 @@ func _process(delta: float) -> void:
 			% [role_text, Net.session_status, Net.player_count(), World.config.max_players]
 		)
 	)
-	_label.text += "gravity: %s m/s²\n" % gravity_vector
 	_label.text += (
 		"%s\nWASD move · Space/Ctrl rise/fall · mouse look · Esc release mouse" % position_text
 	)

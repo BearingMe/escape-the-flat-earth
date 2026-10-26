@@ -6,6 +6,5 @@
 script = ExtResource("1_world_config")
 disk_radius_m = 5000.0
 disk_thickness_m = 500.0
-central_surface_gravity_m_s2 = 9.81
 world_seed = 17320508
 max_players = 6

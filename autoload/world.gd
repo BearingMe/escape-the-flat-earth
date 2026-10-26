@@ -15,8 +15,6 @@ func _ready() -> void:
 func set_seed(seed_value: int) -> void:
 	config.world_seed = seed_value
 	_entity_sequence = 1
-	if is_instance_valid(Gravity):
-		Gravity.configure(config)
 
 
 func allocate_stable_id(kind: String) -> String:
