@@ -8,10 +8,12 @@ Design pillars — never trade these away for "clean" code:
 - **Sandbox first**: every item must be throwable, buildable, rideable, or explosive. Ideally all four.
 - **Jank is a feature; breakage is not**: comedic physics jank is acceptable. The core loop (spawn → loot → build → fight → escape) must always work.
 - **Escape is the win condition**: first player off the disc ends the match; if everyone dies trying, last one standing wins.
+- **Newtonian flat earth**: gravity is a real finite-disk field — it points at the disc from both sides and the underside is walkable. Established in M1; never a global down-vector.
+- **Improvised combat only**: no guns. Every weapon is grabbed, thrown, built, or crashed — mass and momentum are the damage model, and the host does the math.
 
 ## Tech Stack
 - Godot 4.x (latest stable), GDScript 2.0, strongly typed
-- Multiplayer: built-in high-level multiplayer API over ENet — P2P, one player hosts, others join by IP
+- Multiplayer: built-in high-level multiplayer API over ENet — P2P, one player hosts, others join by IP — 2–6 players per session
 - Testing: GUT (`addons/gut`)
 - Format/lint: gdformat + gdlint (`pip install gdtoolkit`)
 - No C#, no third-party netcode, no Steam integration unless explicitly requested
@@ -72,7 +74,7 @@ Two memory systems are available; the split is strict, never cross them:
 No task lists. Progress lives in `.harness/` (see its README):
 - `milestones/` — what we want to reach; one file per milestone, written when a goal is set.
 - `checkpoints/` — our progress; one file per checkpoint, written as work lands.
-Both are empty until the first milestone is cut.
+The M1–M21 roadmap lives in `milestones/` (imported from the flat-earth plan); milestone rules and the handoff checklist are in `.harness/README.md`.
 
 ## Workflow
 1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem. For anything terrain-, vehicle-, grab/throw-, or netcode-shaped, search mempalace (see Memory Systems) for a proven reference implementation before writing from scratch.
