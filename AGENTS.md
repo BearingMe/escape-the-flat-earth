@@ -78,6 +78,7 @@ No task lists. Progress lives in `.harness/` (see its README):
 - `milestones/` — what we want to reach; one file per milestone, written when a goal is set.
 - `checkpoints/` — our progress; one file per checkpoint, written as work lands.
 The M1–M21 roadmap lives in `milestones/` (imported from the flat-earth plan); milestone rules and the handoff checklist are in `.harness/README.md`.
+- **Every milestone must be committed.** Commit all milestone-scoped changes before marking its checkpoint complete or starting the next milestone. Use Conventional Commit messages; a checkpoint is not a substitute for a commit.
 
 ## Workflow
 1. **Understand**: read the relevant scenes/scripts first; mirror how existing netcode handles the same problem. For anything terrain-, vehicle-, grab/throw-, or netcode-shaped, search mempalace (see Memory Systems) for a proven reference implementation before writing from scratch.
@@ -103,4 +104,5 @@ Work is complete ONLY when:
 - GUT suite is green
 - Relevant headless E2E scenarios pass; multiplayer changes include a separate host and client process — never merge netcode blind from a single-instance test
 - No unexpected engine, GUT, or `push_error` output remains; intentional errors are asserted with recovery behavior covered
+- All changes for the milestone are committed with Conventional Commit messages before it is marked complete
 - No unrelated files were touched
