@@ -1,6 +1,6 @@
 # M1 — Disk & Multiplayer Foundation
 
-**Phase:** Foundation · **Depends on:** — · **Status:** not started
+**Phase:** Foundation · **Depends on:** — · **Status:** in progress
 
 ## Goal
 Establish an explorable physical disk and a working multiplayer session as the project's foundation.
@@ -19,7 +19,7 @@ Establish an explorable physical disk and a working multiplayer session as the p
 
 ## Validation
 - Host and at least one client connect and see each other moving.
-- Six clients can join a local test session without duplicate player identities.
+- Five clients plus the host (six total peers) can join a local test session without duplicate player identities.
 - A disconnected player is removed cleanly; the session continues.
 - The upper surface, rim, and underside are inspectable and have valid collision.
 - Gravity at the disk axis has no horizontal component; gravity points toward the disk on both sides.
@@ -35,6 +35,15 @@ Establish an explorable physical disk and a working multiplayer session as the p
 - Gravity goes behind an autoload API (never a per-node down-vector). Underside walkers exist from day one; that's the physics bit played straight.
 - Seed + stable IDs are the determinism groundwork M4's late-join parity leans on.
 - The spectator controller is a dev/test tool only — never shippable as an escape cheat.
+
+## Handoff
+- **Demo:** default launch hosts a local session; `--join=<address> --port=<port>` joins it. The temporary free camera traverses the top, rim, and underside of the configured collider.
+- **Tests:** deterministic gravity/configuration tests, a scene integration test, and separate-process host/client E2E covering connection, host-resolved movement, and disconnect.
+- **Authority:** host owns player transforms and entity IDs; clients submit bounded movement/view intents only. Disk configuration and seed are shared deterministic inputs; debug UI is local.
+- **Dependencies:** Godot 4.7 ENet high-level multiplayer, project GUT harness, default `WorldConfig` resource. The six-player cap includes the host (maximum five clients).
+- **Performance:** gravity uses a symmetry-reduced numerical volume integral with a bounded spatial sample cache; query cost and approximation error are tested before acceptance.
+- **Known limitations:** temporary free-flight ignores collision/gravity and is test/development-only. This milestone does not implement regular character movement or camera polish.
+- **Failure modes:** invalid config/port/host capacity is rejected before mutating session state; failed joins and disconnects return the session to a usable offline state; malformed client intents are ignored without changing host state.
 
 ## References — search before building (mempalace wing `.references`, filter by room)
 - `vantix` — Apache-2.0, free to port — host-authoritative session patterns, lag compensation, network invariants.

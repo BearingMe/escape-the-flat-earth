@@ -1,7 +1,7 @@
 extends SceneTree
 
-const GUT_SCRIPT_PATH: String = "res://addons/gut/gut_cmdln.gd"
-const NO_TESTS_MARKER: String = "Nothing was run."
+const GUT_RUNNER_SCENE: PackedScene = preload("res://addons/gut/gui/GutRunner.tscn")
+const GUT_CONFIG_SCRIPT: Script = preload("res://addons/gut/gut_config.gd")
 
 
 func _initialize() -> void:
@@ -9,29 +9,37 @@ func _initialize() -> void:
 		push_error("No GUT tests found in tests/unit or tests/integration.")
 		quit(1)
 		return
+	call_deferred("_run_suite")
 
-	var output: Array = []
-	var project_path: String = ProjectSettings.globalize_path("res://").trim_suffix("/")
-	var exit_code: int = OS.execute(
-		OS.get_executable_path(),
-		PackedStringArray(["--headless", "--path", project_path, "-s", GUT_SCRIPT_PATH, "-gexit"]),
-		output,
-		true
-	)
-	var output_text: String = ""
-	if not output.is_empty():
-		output_text = str(output[0])
-		print(output_text)
 
-	if exit_code != 0:
+func _run_suite() -> void:
+	var config: Object = GUT_CONFIG_SCRIPT.new()
+	var config_result: int = config.load_options("res://.gutconfig.json")
+	if config_result < 0:
+		push_error("Could not load .gutconfig.json: %s" % config_result)
 		quit(1)
 		return
-	if output_text.contains(NO_TESTS_MARKER):
-		push_error("GUT discovered no tests; refusing to report a passing suite.")
-		quit(1)
-		return
+	config.options.should_exit = true
+	config.options.log_level = 0
+	config.options.disable_colors = true
+	var runner: Node = GUT_RUNNER_SCENE.instantiate()
+	root.add_child(runner)
+	runner.set_gut_config(config)
+	var gut: Object = runner.get_gut()
+	var result_callback: Callable = _report_suite_result.bind(gut)
+	if not gut.end_run.is_connected(result_callback):
+		gut.end_run.connect(result_callback)
+	runner.run_tests(false)
 
-	quit(0)
+
+func _report_suite_result(gut: Object) -> void:
+	var test_count: int = gut.get_test_count()
+	var pass_count: int = gut.get_pass_count()
+	var fail_count: int = gut.get_fail_count()
+	print("GUT_RESULT tests=%d passed=%d failed=%d" % [test_count, pass_count, fail_count])
+	if test_count == 0:
+		push_error("GUT discovered no runnable tests; refusing to report a passing suite.")
+		quit(1)
 
 
 func _count_test_scripts() -> int:

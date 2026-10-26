@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://levels/flat_earth/world_controller.gd" id="1_world_controller"]
+[ext_resource type="PackedScene" path="res://entities/world/disk.tscn" id="2_disk"]
+[ext_resource type="Script" path="res://levels/flat_earth/debug_overlay.gd" id="3_debug_overlay"]
+
+[node name="World" type="Node3D"]
+script = ExtResource("1_world_controller")
+
+[node name="Disk" parent="." instance=ExtResource("2_disk")]
+unique_name_in_owner = true
+
+[node name="Players" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="Spawner" type="MultiplayerSpawner" parent="Players"]
+unique_name_in_owner = true
+spawn_path = NodePath("..")
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_debug_overlay")
+
+[node name="Panel" type="PanelContainer" parent="DebugOverlay"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 600.0
+offset_bottom = 152.0
+
+[node name="DebugLabel" type="Label" parent="DebugOverlay/Panel"]
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 18
+autowrap_mode = 3

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WorldConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/world_config.gd" id="1_world_config"]
+
+[resource]
+script = ExtResource("1_world_config")
+disk_radius_m = 5000.0
+disk_thickness_m = 500.0
+central_surface_gravity_m_s2 = 9.81
+world_seed = 17320508
+max_players = 6

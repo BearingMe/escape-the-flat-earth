@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://entities/world/disk.gd" id="1_disk"]
+
+[node name="Disk" type="StaticBody3D"]
+script = ExtResource("1_disk")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+unique_name_in_owner = true
+
+[node name="TopSurface" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
+
+[node name="UndersideSurface" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
+
+[node name="RimSurface" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
