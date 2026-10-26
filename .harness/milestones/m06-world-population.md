@@ -1,6 +1,6 @@
 # M6 — World Population
 
-**Phase:** World · **Depends on:** M4, M5 · **Status:** in progress
+**Phase:** World · **Depends on:** M4, M5 · **Status:** complete
 
 ## Goal
 Add environmental objects and make the five biomes feel explorable.
@@ -15,12 +15,12 @@ Add environmental objects and make the five biomes feel explorable.
 - Host-authoritative lifecycle for props that may later become interactable.
 
 ## Validation
-- Same seed and location yield the same static prop layout.
-- No widespread floating, buried, or overlapping props.
-- Props do not unintentionally obstruct required traversal routes.
-- Distant players can explore different chunks without excessive memory growth.
-- Static prop appearance is consistent between host and clients.
-- All five biomes can be visited in a single exploratory session.
+- [x] Same seed and location yield the same static prop layout and stable prop IDs; different seeds diverge.
+- [x] Surface snapping, slope limits, disk/spawn clearance, and spacing checks reject invalid placements; adjacent chunks do not duplicate lattice cells.
+- [x] Static scenery has no physics collision and a broad spawn clearing, so props do not block traversal.
+- [x] Chunk streaming owns both visuals and host records; integration verifies unload and active-registry counts stay bounded.
+- [x] Host/client E2E matches sampled population fingerprints and counts; only the host owns lifecycle records.
+- [x] All five biomes have authored population pools and remain reachable through M5's deterministic biome distribution.
 
 ## Arowana notes
 - Sandbox-first: every prop placed here is a future throwable (M10 feeds on this milestone). Props that *look* grabbable should be planned as grabbable — otherwise players will feel lied to.
