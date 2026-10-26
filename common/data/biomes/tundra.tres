@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TerrainBiomeDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/terrain_biome_definition.gd" id="1_biome"]
+
+[resource]
+script = ExtResource("1_biome")
+biome_id = 3
+display_name = "Tundra"
+terrain_color = Color(0.65, 0.69, 0.66, 1)
+temperature_preference = -0.78
+moisture_preference = 0.12
+ruggedness_preference = 0.14
+elevation_min_ratio = 0.0
+elevation_max_ratio = 0.3
+elevation_curve = 1.45
+detail_strength = 0.06

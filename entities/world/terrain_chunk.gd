@@ -28,7 +28,8 @@ func configure(chunk_coordinate: Vector2i, generator: DiskTerrainGenerator) -> E
 
 func _terrain_material() -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color("#718f45")
+	material.albedo_color = Color.WHITE
+	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.95
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material

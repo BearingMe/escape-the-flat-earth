@@ -1,6 +1,6 @@
 # M5 — Five Biomes
 
-**Phase:** World · **Depends on:** M4 · **Status:** not started
+**Phase:** World · **Depends on:** M4 · **Status:** in progress
 
 ## Goal
 Partition the disk into five distinct procedural environments.
@@ -23,6 +23,16 @@ Partition the disk into five distinct procedural environments.
 - Ice wall coverage is continuous around the perimeter.
 - Host, client, and late joiner agree on biome identity at sampled coordinates.
 - Terrain and collision remain traversable where intended.
+
+## Implementation handoff
+
+- **Demo:** Run the flat-earth world to inspect biome-tinted terrain, or run `godot --headless --path . --script res://tests/e2e/run_multiplayer_smoke.gd` to compare biome IDs on a host and five separate clients with mismatched requested seeds.
+- **Tests:** GUT verifies all five IDs are reachable, data profiles are distinct, the Ice Wall is continuous around the perimeter, seeded biome weights repeat and normalize, transitions blend elevation/material color, and adjacent mesh seams remain identical. Existing integration coverage checks terrain collision and traversal.
+- **Authority:** Biomes are deterministic derived data from the host-synchronized world seed/config and shared `.tres` definitions. Each peer evaluates the same sampler locally; no per-coordinate biome state is networked. `DiskTerrainGenerator.sample_biome_id`, `sample_biome`, and `sample_biome_weights` are the public lookup interface for map/weather/spawn systems.
+- **Dependencies:** M4 `WorldConfig`, disk-clipped chunk mesh/collision, and host-authoritative configuration synchronization.
+- **Performance:** Biome color/elevation are blended at terrain vertices; chunk generation remains capped at two chunks per frame by M4. No separate biome-generation frame-time benchmark has been recorded.
+- **Known limitations:** Current biome surface distinction is data-driven color and elevation shaping; trees, shrubs, rocks, and ice props belong to M6. The Ice Wall is a continuous raised perimeter biome/ridge, not yet a vertical, breachable obstacle; escape challenges remain M19.
+- **Failure modes:** Invalid or incomplete biome profiles fail catalog validation and terrain-generator configuration. Deterministic weights are normalized and resource IDs are checked for uniqueness; existing chunk-generation error handling remains responsible for mesh/collision failures.
 
 ## Arowana notes
 - The Ice Wall biome is the endgame perimeter — its "future escape challenges" hook is M19.

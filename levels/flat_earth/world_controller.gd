@@ -79,7 +79,8 @@ func _ready() -> void:
 				"port": port,
 				"terrain_seed": World.config.world_seed,
 				"world_config": World.config.to_dictionary(),
-				"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO)
+				"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
+				"biome_samples": _terrain_biome_snapshot()
 			}
 		)
 
@@ -113,6 +114,29 @@ func _read_string_argument(arguments: PackedStringArray, key: String, fallback: 
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix).strip_edges()
 	return fallback
+
+
+func _terrain_biome_snapshot() -> Dictionary:
+	var generator: DiskTerrainGenerator = DiskTerrainGenerator.new()
+	if generator.configure(World.config, World.config.world_seed) != OK:
+		return {}
+	var normalized_points: Array[Vector2] = [
+		Vector2.ZERO,
+		Vector2(0.25, 0.0),
+		Vector2(-0.25, 0.25),
+		Vector2(0.0, 0.5),
+		Vector2(0.5, 0.0),
+		Vector2(0.0, 0.75),
+		Vector2(0.96, 0.0),
+		Vector2(-0.96, 0.0),
+		Vector2(0.0, -0.96)
+	]
+	var samples: Dictionary = {}
+	for normalized_point: Vector2 in normalized_points:
+		var world_point: Vector2 = normalized_point * World.config.disk_radius_m
+		var key: String = "%.2f,%.2f" % [normalized_point.x, normalized_point.y]
+		samples[key] = generator.sample_biome_id(world_point.x, world_point.y)
+	return samples
 
 
 func _process_e2e_host(delta: float) -> void:
@@ -261,6 +285,7 @@ func _process_e2e_client(delta: float) -> void:
 					"requested_seed": _e2e_requested_seed,
 					"world_config": World.config.to_dictionary(),
 					"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
+					"biome_samples": _terrain_biome_snapshot(),
 					"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count()
 				}
 			)

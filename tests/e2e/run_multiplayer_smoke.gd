@@ -196,6 +196,10 @@ func _verify_world_results() -> bool:
 	if not host_ready is Dictionary:
 		_failure_message = "Host did not publish its authoritative terrain configuration"
 		return false
+	var host_biome_samples: Variant = host_ready.get("biome_samples")
+	if not host_biome_samples is Dictionary or host_biome_samples.size() < 5:
+		_failure_message = "Host did not publish deterministic biome samples"
+		return false
 	for client_slot: int in range(1, CLIENT_COUNT + 1):
 		var client_ready: Variant = _read_result("client-%d.ready.json" % client_slot)
 		if not client_ready is Dictionary:
@@ -207,6 +211,7 @@ func _verify_world_results() -> bool:
 			client_ready.get("terrain_seed") != host_ready.get("terrain_seed")
 			or client_ready.get("world_config") != host_ready.get("world_config")
 			or client_ready.get("terrain_fingerprint") != host_ready.get("terrain_fingerprint")
+			or client_ready.get("biome_samples") != host_biome_samples
 			or int(client_ready.get("loaded_chunk_count", 0)) <= 0
 		):
 			_failure_message = (
