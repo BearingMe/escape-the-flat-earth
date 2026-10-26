@@ -25,6 +25,7 @@ The milestone plan was imported from `flat-earth-milestones.md` (deleted after i
 6. **Automate meaningful tests.** Test calculations, multiplayer invariants, persistence, and procedural determinism. Do not test trivial getters, constants, or engine behavior without a regression reason.
 7. **Keep systems separate.** World data, generation, simulation, rendering, networking, and interaction must have explicit responsibilities. (See AGENTS.md boundaries.)
 8. **Do not implement future milestones early.** Small supporting abstractions are acceptable; full systems belong to their milestone.
+9. **Failure behavior is designed and tested.** Expected failures are explicit, recoverable failures preserve valid state, and authority boundaries reject bad client intents. See [error handling](../docs/error-handling.md) and [testing](../docs/testing.md).
 
 ## Roadmap
 
@@ -77,5 +78,6 @@ When work on a milestone starts, extend its file with:
 - **Dependencies:** the earlier systems used and any assumptions introduced.
 - **Performance:** relevant measurements, not speculative optimizations.
 - **Known limitations:** deviations, approximations, and intentionally deferred work.
+- **Failure modes:** expected and unexpected failures, recovery/player feedback, and tests for the failure paths.
 
 **Scope rule:** A milestone is done when its acceptance criteria are met, not when every conceivable enhancement is implemented.

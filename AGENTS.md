@@ -14,32 +14,33 @@ Design pillars — never trade these away for "clean" code:
 ## Tech Stack
 - Godot 4.x (latest stable), GDScript 2.0, strongly typed
 - Multiplayer: built-in high-level multiplayer API over ENet — P2P, one player hosts, others join by IP — 2–6 players per session
-- Testing: GUT (`addons/gut`)
+- Testing: GUT 9.7.1 (`addons/gut`) for unit/integration; project-owned headless Godot processes for E2E
 - Format/lint: gdformat + gdlint (`pip install gdtoolkit`)
 - No C#, no third-party netcode, no Steam integration unless explicitly requested
 
 ## Commands
 ```bash
 godot --headless --path . --import         # import assets (run after clone, before any headless run)
-godot --headless --path . --quit-after 60  # smoke-test boot; must exit with no script/parse errors
+godot --headless --path . --scene res://tests/scenes/boot_smoke.tscn --quit-after 60  # smoke-test runtime/autoload boot
 godot --path .                             # run the game
-gdformat .                                 # format all GDScript
-gdlint .                                   # lint all GDScript
-godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit  # run tests
+gdformat .                                 # formatter config excludes vendored/generated/reference code
+gdlint .                                   # linter config excludes vendored/generated/reference code
+godot --headless --path . --script res://tests/run_gut.gd  # run GUT; fails if no tests are discovered
 ```
 `godot` must be on PATH (Windows: use the full path to the Godot editor exe if not).
 
 ## Repository Structure
 ```
 project.godot
-addons/      # Third-party plugins (GUT). Vendored — never hand-edit.
+addons/      # Third-party plugins (Godot AI, GUT). Vendored — never hand-edit.
 assets/      # Art, audio, fonts, models. Zero code.
 autoload/    # Global singletons: net.gd (host/join/peers), game.gd (match state), events.gd (signal bus)
 common/      # Shared utilities + custom Resources (.tres item/weapon data tables). Zero scenes.
 entities/    # player/, weapons/, npcs/, props/ — each folder holds its .tscn + .gd together
 levels/      # flat_earth/ (the disc, ice wall, firmament) + small test arenas
 ui/          # menu/ (main menu, host/join), hud/ (health, build menu)
-tests/       # GUT tests, mirroring source folders
+tests/       # unit/, integration/, e2e/, fixtures/, support/ — see docs/testing.md
+docs/        # Testing and error-handling conventions
 .opencode/   # OpenCode project skills (mempalace setup). Committed.
 .references/ # Local-only reference vault (7 repos + analysis) mirroring the mempalace `.references` wing. Gitignored — never commit.
 .harness/    # Progress protocol: milestones/ (goals) + checkpoints/ (progress). Committed.
@@ -62,6 +63,8 @@ tests/       # GUT tests, mirroring source folders
 - Signals are typed: `signal died(killer_id: int)`. Connect in code, not in the editor, when the wiring is logic.
 - Node references use `@onready` + `%` unique names, never hardcoded string paths that scene edits can break.
 - New `.tscn` files stay small and get assembled in code over deep nesting. Reference scripts/scenes by `res://` path; let `--import` generate UIDs — never invent `uid://...` strings.
+- Expected failures return typed errors/results; unexpected failures are reported once with actionable context. Assertions are for programmer invariants, never user/network input. See `docs/error-handling.md`.
+- New behavior includes meaningful unit/integration coverage and tests for its fallible paths; E2E covers cross-process and multiplayer behavior. See `docs/testing.md`.
 - Commit messages follow Conventional Commits only: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, etc. (e.g. `feat: add buildable prop spawner`). Never use vague messages like "update" or "stuff".
 
 ## Memory Systems
@@ -91,12 +94,13 @@ The M1–M21 roadmap lives in `milestones/` (imported from the flat-earth plan);
 - Never break the core loop to ship a joke. A joke that crashes the match gets fixed or cut.
 - Never add an addon, plugin, or engine dependency without explicit user approval.
 - Never commit secrets, private server IPs, or personal config (`override.cfg` is local-only).
-- Never leave `print()` debug spam in merged code; use `push_warning()`/`assert()` for real problems.
+- Never leave `print()` debug spam in merged code; follow `docs/error-handling.md` for reporting and recovery. Assertions are for programmer invariants only.
 
 ## Definition of Done
 Work is complete ONLY when:
-- `godot --headless --path . --import` and the `--quit-after 60` smoke test exit clean
-- `gdlint .` passes and `gdformat` has been applied
+- `godot --headless --path . --import` and the headless boot smoke scene exit clean
+- `gdlint` passes and `gdformat` has been applied to project-owned GDScript (not vendored addons)
 - GUT suite is green
-- Multiplayer changes are verified with host + at least one client peer — never merge netcode blind from a single-instance test
+- Relevant headless E2E scenarios pass; multiplayer changes include a separate host and client process — never merge netcode blind from a single-instance test
+- No unexpected engine, GUT, or `push_error` output remains; intentional errors are asserted with recovery behavior covered
 - No unrelated files were touched
