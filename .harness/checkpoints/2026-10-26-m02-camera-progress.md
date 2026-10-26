@@ -1,6 +1,6 @@
 # M2 — Camera System
 
-**Date:** 2026-10-26 · **Milestone:** M2 · **Status:** revision verified / pending commit
+**Date:** 2026-10-26 · **Milestone:** M2 · **Status:** complete
 
 ## Progress
 
@@ -22,4 +22,4 @@
 
 ## Handoff
 
-Commit the zero-gravity camera scope and E2E coverage. After that commit, mark M2 complete in a separate documentation commit; begin M3 with gravity still removed.
+The zero-gravity camera scope and E2E coverage were committed as `64deacc` (`test: verify multiplayer camera look ownership`). Begin M3 with gravity still removed; keep engine default gravity at zero and defer gravity-dependent behavior.

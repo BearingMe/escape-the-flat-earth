@@ -1,6 +1,6 @@
 # M2 — Camera System
 
-**Phase:** Foundation · **Depends on:** M1 · **Status:** in progress (zero-gravity scope)
+**Phase:** Foundation · **Depends on:** M1 · **Status:** complete (zero-gravity scope)
 
 ## Goal
 Create a playable first-person view that remains usable anywhere on the disk.
