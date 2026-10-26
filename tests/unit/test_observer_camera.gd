@@ -30,3 +30,18 @@ func test_camera_sensitivities_are_configurable() -> void:
 	assert_almost_eq(observer._local_yaw, -0.02, 0.0001)
 	assert_almost_eq(observer._local_pitch, 0.02, 0.0001)
 	observer.free()
+
+
+func test_mouse_look_is_location_independent_across_disk_inspection_points() -> void:
+	var observer: ObserverPlayer = ObserverPlayer.new()
+	var inspection_points: Array[Vector3] = [
+		Vector3(0.0, 250.0, 0.0), Vector3(5000.0, 250.0, 0.0), Vector3(0.0, -250.0, 0.0)
+	]
+	for point: Vector3 in inspection_points:
+		observer.position = point
+		observer._local_yaw = 0.0
+		observer._local_pitch = 0.0
+		observer._apply_mouse_motion(Vector2(40.0, -20.0))
+		assert_almost_eq(observer._local_yaw, -0.1, 0.0001)
+		assert_almost_eq(observer._local_pitch, 0.05, 0.0001)
+	observer.free()

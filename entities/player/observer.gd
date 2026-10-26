@@ -18,6 +18,8 @@ var _local_yaw: float = 0.0
 var _local_pitch: float = 0.0
 var _wish_direction: Vector3 = Vector3.ZERO
 var _e2e_drive: bool = false
+var _e2e_camera_look: bool = false
+var _e2e_camera_look_applied: bool = false
 
 @onready var _camera: Camera3D = %Camera3D
 @onready var _body: MeshInstance3D = %Body
@@ -42,6 +44,7 @@ func _ready() -> void:
 	_body.visible = not is_local_player
 	_name_label.visible = not is_local_player
 	_e2e_drive = OS.get_cmdline_user_args().has("--e2e-drive")
+	_e2e_camera_look = OS.get_cmdline_user_args().has("--e2e-camera-look")
 	if is_local_player and DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -61,10 +64,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		_apply_mouse_motion(event.screen_relative)
 
 
+func _process(_delta: float) -> void:
+	if not is_instance_valid(_camera):
+		return
+	if _is_local_player() and not _camera.current:
+		_camera.make_current()
+	elif not _is_local_player() and _camera.current:
+		_camera.clear_current()
+
+
 func _physics_process(delta: float) -> void:
 	if peer_id <= 0 or multiplayer.multiplayer_peer == null:
 		return
 	if _is_local_player():
+		if _e2e_camera_look and not _e2e_camera_look_applied:
+			_apply_mouse_motion(Vector2(40.0, -20.0))
+			_e2e_camera_look_applied = true
 		_update_controller_look(delta)
 	if multiplayer.is_server():
 		if peer_id == multiplayer.get_unique_id():
@@ -130,6 +145,10 @@ func _is_local_player() -> bool:
 
 func is_camera_current() -> bool:
 	return is_instance_valid(_camera) and _camera.current
+
+
+func has_applied_e2e_camera_look() -> bool:
+	return _e2e_camera_look_applied
 
 
 func _apply_look_delta(look_delta: Vector2) -> void:

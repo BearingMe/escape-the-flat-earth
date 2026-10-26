@@ -1,30 +1,30 @@
 # M2 — Camera System
 
-**Phase:** Foundation · **Depends on:** M1 · **Status:** in progress (gravity-dependent acceptance pending)
+**Phase:** Foundation · **Depends on:** M1 · **Status:** in progress (zero-gravity scope)
 
 ## Goal
 Create a playable first-person view that remains usable anywhere on the disk.
 
 ## Scope
 - First-person camera with mouse/controller look and configurable sensitivity.
-- Gravity-relative up/down orientation and stable view rotation.
-- View behavior for rim traversal and underside exploration.
-- Camera collision and clipping protections where needed.
+- Stable world-up view rotation for the current zero-gravity prototype; this is a camera convention, not a gravity model.
+- Manual view control for inspecting the disc center, rim, and underside in free flight.
+- Camera collision for normal movement is coupled to M3 actor collision; the development free-camera may pass through geometry.
 - Local-player camera ownership; remote players must not control one another's cameras.
 - Optional temporary free-camera debugging mode.
 
 ## Validation
-- Camera responds consistently at center, rim, and underside. **Pending:** gravity-relative orientation cannot be validated while gravity implementation is deferred.
-- No sudden orientation flips when local gravity direction changes. **Pending:** gravity implementation is deferred.
-- Local inputs affect only the local player's view. **Camera ownership verified** in separate host/client processes; exercising actual mouse/controller input independently remains pending.
-- Camera cannot accidentally clip through solid disk geometry during ordinary operation. **Pending:** the current observer is free-flight; collision belongs with the movement/collision work.
-- Host and client each have independent, working views. **Pending:** separate-process camera-input coverage remains to be added.
+- Mouse-look behavior is independent of the observer's location on the disk; unit coverage exercises look shaping and the separate-process E2E exercises local look input.
+- Gravity-relative up alignment and no-flip transitions remain deferred; no gravity source is added to satisfy this milestone.
+- Local inputs affect only the local player's view; host and five clients each verify exclusive camera ownership and local look input in separate processes.
+- The development free-camera intentionally passes through geometry. Collision-backed camera clipping is validated with M3 movement, not this free-flight tool.
+- Host and client each have independent, working views.
 
 ## Arowana notes
-- The rim/underside orientation flip is the signature shot of the entire game — treat "no sudden orientation flips" as a feature test, not a corner case.
+- Gravity-driven rim/underside orientation is deferred with gravity; do not add a gravity query or field to M2.
 - Free-cam stays a dev/test tool only; in a BR it must never ship as gameplay (it is a wallhack and an escape cheat in one).
-- Camera ownership is per-peer — guard with `is_multiplayer_authority()` (AGENTS.md).
-- Per explicit user direction on 2026-10-26, gravity implementation remains deferred. Do not add a gravity autoload or query; keep up-vector alignment, rim/underside orientation, and gravity-transition acceptance pending. Mouse/controller look and local camera ownership can proceed independently.
+- Camera ownership is per-peer. Local view input is peer-gated; the host remains authoritative for replicated observer state.
+- The user confirmed on 2026-10-26 that the removed center-push gravity is not to be restored. M2 uses world-up only as a zero-gravity camera convention, never as a gameplay down-vector.
 
 ## References — search before building (mempalace wing `.references`, filter by room)
 - `open_acre` — GPL-3.0, architecture-only (clean-room) — OrbitCameraController rig patterns: orientation bases, occlusion handling.

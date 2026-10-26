@@ -26,8 +26,8 @@ func _run() -> void:
 	if passed:
 		print(
 			(
-				"M1 multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
-				+ "exclusive local cameras, host-resolved movement, disconnect cleanup, and teardown."
+				"Multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
+				+ "local camera ownership/look, host-resolved movement, disconnect cleanup, and teardown."
 			)
 		)
 		quit(0)
@@ -134,11 +134,24 @@ func _verify_results() -> bool:
 	if not _result_passed("host.result.json"):
 		_failure_message = "Host scenario result was not passing"
 		return false
-	if not _result_has_true("host.result.json", "camera_ownership_valid"):
-		_failure_message = "Host did not retain exclusive ownership of its local camera"
+	if not _verify_camera_results():
 		return false
 	if not _result_passed("client-%d.drop.json" % CLIENT_COUNT):
 		_failure_message = "Disconnecting client result was not passing"
+		return false
+	for client_slot: int in range(1, CLIENT_COUNT):
+		if not _result_passed("client-%d.result.json" % client_slot):
+			_failure_message = "Client %d did not report clean disconnect" % client_slot
+			return false
+	return true
+
+
+func _verify_camera_results() -> bool:
+	if not _result_has_true("host.result.json", "camera_ownership_valid"):
+		_failure_message = "Host did not retain exclusive ownership of its local camera"
+		return false
+	if not _result_has_true("host.result.json", "camera_look_applied"):
+		_failure_message = "Host camera did not process local look input"
 		return false
 	for client_slot: int in range(1, CLIENT_COUNT + 1):
 		if not _result_has_true("client-%d.ready.json" % client_slot, "camera_ownership_valid"):
@@ -146,9 +159,8 @@ func _verify_results() -> bool:
 				"Client %d did not retain exclusive ownership of its local camera" % client_slot
 			)
 			return false
-	for client_slot: int in range(1, CLIENT_COUNT):
-		if not _result_passed("client-%d.result.json" % client_slot):
-			_failure_message = "Client %d did not report clean disconnect" % client_slot
+		if not _result_has_true("client-%d.ready.json" % client_slot, "camera_look_applied"):
+			_failure_message = "Client %d camera did not process local look input" % client_slot
 			return false
 	return true
 
@@ -189,6 +201,7 @@ func _start_child(
 		arguments.append("--e2e-drop-after-connect")
 	if drive:
 		arguments.append("--e2e-drive")
+	arguments.append("--e2e-camera-look")
 	arguments.append("--e2e-role=%s" % ("host" if role == "host" else "client"))
 	arguments.append("--e2e-result-dir=%s" % _run_directory)
 	arguments.append("--port=%d" % port)

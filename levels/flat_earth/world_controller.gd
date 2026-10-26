@@ -2,6 +2,7 @@ extends Node3D
 
 const E2E_TIMEOUT_SEC: float = 18.0
 const E2E_HOST_SETTLE_SEC: float = 0.75
+const E2E_CAMERA_SETTLE_SEC: float = 1.0
 
 var _e2e_role: String = ""
 var _e2e_result_dir: String = ""
@@ -17,6 +18,7 @@ var _e2e_client_ready_written: bool = false
 var _e2e_host_result: Dictionary = {}
 var _e2e_host_result_seen: bool = false
 var _e2e_local_peer_id: int = 0
+var _e2e_camera_wait_elapsed: float = 0.0
 
 @onready var _players: Node3D = %Players
 @onready var _spawner: MultiplayerSpawner = %Spawner
@@ -99,27 +101,25 @@ func _process_e2e_host(delta: float) -> void:
 			get_tree().quit(0)
 		return
 	if Net.player_count() >= World.config.max_players and not _e2e_full_capacity_seen:
-		if not _camera_ownership_is_valid(1):
-			_finish_e2e_failure("camera_ownership")
-		else:
-			_e2e_full_capacity_seen = true
-			for child: Node in _players.get_children():
-				if child is ObserverPlayer and child.peer_id != 1:
-					_e2e_initial_positions[child.peer_id] = child.global_position
+		var host_observer: ObserverPlayer = _players.get_node_or_null("Player_1") as ObserverPlayer
+		if (
+			not _camera_ownership_is_valid(1)
+			or host_observer == null
+			or not host_observer.has_applied_e2e_camera_look()
+		):
+			_e2e_camera_wait_elapsed += delta
+			if _e2e_camera_wait_elapsed >= E2E_CAMERA_SETTLE_SEC:
+				_finish_e2e_failure("camera_ownership")
+			return
+		_e2e_full_capacity_seen = true
+		for child: Node in _players.get_children():
+			if child is ObserverPlayer and child.peer_id != 1:
+				_e2e_initial_positions[child.peer_id] = child.global_position
 	if not _e2e_full_capacity_seen or Net.player_count() != World.config.max_players - 1:
 		return
-	var drop_result_path: String = _e2e_result_dir.path_join(
-		"client-%d.drop.json" % _e2e_drop_client_slot
-	)
-	if not FileAccess.file_exists(drop_result_path):
+	var dropped_peer_id: int = _read_dropped_peer_id()
+	if dropped_peer_id < 1:
 		return
-	var drop_result: Variant = JSON.parse_string(FileAccess.get_file_as_string(drop_result_path))
-	if not drop_result is Dictionary:
-		return
-	var dropped_peer_value: Variant = drop_result.get("peer_id", -1)
-	if typeof(dropped_peer_value) != TYPE_INT and typeof(dropped_peer_value) != TYPE_FLOAT:
-		return
-	var dropped_peer_id: int = int(dropped_peer_value)
 	if (
 		_players.has_node("Player_%d" % dropped_peer_id)
 		or not _remaining_players_moved(dropped_peer_id)
@@ -134,10 +134,26 @@ func _process_e2e_host(delta: float) -> void:
 			"dropped_peer_removed": true,
 			"dropped_peer_id": dropped_peer_id,
 			"remaining_clients_moved": true,
-			"camera_ownership_valid": true
+			"camera_ownership_valid": true,
+			"camera_look_applied": true
 		}
 	)
 	_e2e_host_settle = E2E_HOST_SETTLE_SEC
+
+
+func _read_dropped_peer_id() -> int:
+	var drop_result_path: String = _e2e_result_dir.path_join(
+		"client-%d.drop.json" % _e2e_drop_client_slot
+	)
+	if not FileAccess.file_exists(drop_result_path):
+		return -1
+	var drop_result: Variant = JSON.parse_string(FileAccess.get_file_as_string(drop_result_path))
+	if not drop_result is Dictionary:
+		return -1
+	var dropped_peer_value: Variant = drop_result.get("peer_id", -1)
+	if typeof(dropped_peer_value) != TYPE_INT and typeof(dropped_peer_value) != TYPE_FLOAT:
+		return -1
+	return int(dropped_peer_value)
 
 
 func _remaining_players_moved(dropped_peer_id: int) -> bool:
@@ -159,20 +175,23 @@ func _remaining_players_moved(dropped_peer_id: int) -> bool:
 func _process_e2e_client(delta: float) -> void:
 	if Net.session_status == "connected" and not _e2e_client_ready_written:
 		var local_observer: ObserverPlayer = _find_local_observer()
-		if local_observer != null:
+		if local_observer != null and local_observer.has_applied_e2e_camera_look():
 			_e2e_local_peer_id = local_observer.peer_id
 			var camera_ownership_valid: bool = _camera_ownership_is_valid(_e2e_local_peer_id)
+			if not camera_ownership_valid:
+				_e2e_camera_wait_elapsed += delta
+				if _e2e_camera_wait_elapsed >= E2E_CAMERA_SETTLE_SEC:
+					_finish_e2e_failure("camera_ownership")
+				return
 			_e2e_client_ready_written = _write_e2e_result(
 				"client-%d.ready.json" % _e2e_client_slot,
 				{
 					"status": "ready" if camera_ownership_valid else "failed",
 					"peer_id": local_observer.peer_id,
-					"camera_ownership_valid": camera_ownership_valid
+					"camera_ownership_valid": camera_ownership_valid,
+					"camera_look_applied": true
 				}
 			)
-			if not camera_ownership_valid:
-				_finish_e2e_failure("camera_ownership")
-				return
 	if _e2e_drop_after_connect and _e2e_client_ready_written:
 		_e2e_drop_elapsed += delta
 		if _e2e_drop_elapsed >= 2.0:
