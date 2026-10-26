@@ -18,8 +18,8 @@ The milestone plan was imported from `flat-earth-milestones.md` (deleted after i
 ## Milestone rules
 
 1. **Multiplayer from day one.** M1 establishes hosting, joining, authority, and synchronization. Every subsequent gameplay feature must work in multiplayer. There is no later "multiplayer integration" milestone.
-2. **Gravity is deferred by explicit user direction (2026-10-26).** M1 has no gravity field or gravity-aware physics API; Godot's default gravity stays zero. Do not restore gravity without renewed user approval. If reintroduced, it must be a finite-disk field, never a global down-vector.
-3. **Rigid world, real forces.** The disk does not collapse or deform. When physical simulation is introduced, mobile objects respond consistently to explicit forces and collisions; simplified atmospheric/weather models must be documented as approximations. Do not rely on engine default gravity while gravity is deferred.
+2. **Gravity is standard Earth gravity.** Use 9.8 m/s² along global downward Y only. Do not add horizontal, radial, or center-push gravity, and do not make gravity point toward the disk center or flip on the underside.
+3. **Rigid world, real forces.** The disk does not collapse or deform. When physical simulation is introduced, mobile objects respond consistently to gravity and collisions; simplified atmospheric/weather models must be documented as approximations.
 4. **Authority is explicit.** The host owns canonical game state, shared physics, resources, and persistent state. Clients may interpolate or predict visuals and movement where justified. (See AGENTS.md netcode rules.)
 5. **Every milestone is independently demonstrable.** The milestone must have a working demo and acceptance checks, not just an implementation checklist.
 6. **Automate meaningful tests.** Test calculations, multiplayer invariants, persistence, and procedural determinism. Do not test trivial getters, constants, or engine behavior without a regression reason.
@@ -31,7 +31,7 @@ The milestone plan was imported from `flat-earth-milestones.md` (deleted after i
 
 | Phase | Milestones | Demonstrable outcome |
 |---|---|---|
-| Foundation | M1–M3 | Multiplayer disk, camera, movement (gravity implementation deferred) |
+| Foundation | M1–M3 | Multiplayer disk, camera, and movement under standard downward gravity |
 | World | M4–M6 | Procedural terrain, five biomes, environmental population |
 | Quality gate | M7 | Tested, profiled, refactored world foundation |
 | Environment | M8–M9 | Minimap and dynamic synchronized weather |

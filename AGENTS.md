@@ -8,7 +8,7 @@ Design pillars — never trade these away for "clean" code:
 - **Sandbox first**: every item must be throwable, buildable, rideable, or explosive. Ideally all four.
 - **Jank is a feature; breakage is not**: comedic physics jank is acceptable. The core loop (spawn → loot → build → fight → escape) must always work.
 - **Escape is the win condition**: first player off the disc ends the match; if everyone dies trying, last one standing wins.
-- **Newtonian flat earth**: the long-term physics intent is a finite-disk field that points at the disc from both sides; never use a global down-vector. Per explicit user direction on 2026-10-26, gravity implementation is deferred: keep engine default gravity at zero and do not restore a gravity subsystem until the user reopens that scope.
+- **Gravity**: use normal Earth gravity at 9.8 m/s² along the global downward Y axis. Do not add horizontal, radial, or center-push gravity; gravity does not point toward the disk center or flip on the underside.
 - **Improvised combat only**: no guns. Every weapon is grabbed, thrown, built, or crashed — mass and momentum are the damage model, and the host does the math.
 
 ## Tech Stack
