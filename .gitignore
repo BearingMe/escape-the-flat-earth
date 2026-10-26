@@ -1,0 +1,20 @@
+# Godot 4 generated/cache files — never commit
+.godot/
+/android/
+
+# Personal / local-only overrides
+override.cfg
+export_credentials.cfg
+
+# Exports
+export_presets.cfg
+*.tmp
+/build/
+/dist/
+
+# Local reference material — not part of the repo
+/.references/
+
+# OS junk
+Thumbs.db
+.DS_Store
