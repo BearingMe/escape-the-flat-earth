@@ -1,6 +1,6 @@
 # M16 — Vehicles & Transportation
 
-**Phase:** Engineering · **Depends on:** M14, M15 · **Status:** not started
+**Phase:** Engineering · **Depends on:** M14, M15 · **Status:** complete
 
 ## Goal
 Turn player-built contraptions into practical or catastrophically impractical transportation.
@@ -21,6 +21,32 @@ Turn player-built contraptions into practical or catastrophically impractical tr
 - Engines consume configured fuel; detached parts behave consistently.
 - Passengers do not desynchronize or fall through the vehicle under normal operation.
 - Damaged and abandoned vehicles are safely handled through save/load.
+
+## Demo
+- Mount and drive the expedition recon sled / buggy: press `E` on the driver's seat to mount, use `W`/`S` for throttle and `A`/`D` for steering, carry a passenger in the rear seat, and ram obstacles at speed to deal momentum impact damage.
+- Automated tests verifying raycast suspension, lateral tire friction, multi-passenger seating, fuel consumption, and vehicle collision impacts: `godot --headless --path . --script res://tests/run_gut.gd`
+
+## Tests
+- `tests/unit/test_vehicle_kinematics.gd`: validates raycast spring-damper suspension force math, steering angles, throttle force, and fuel depletion rates.
+- `tests/integration/test_vehicle_driving.gd`: validates host-authoritative vehicle simulation under standard downward gravity, driver input propagation, passenger mounting/dismounting, and ramming impacts.
+
+## Authority
+- Host owns all vehicle `RigidBody3D` simulations, raycast ground forces, engine throttle, fuel levels, and passenger seating states.
+- Clients send throttle, steer, brake, mount, and dismount intents via RPC (`submit_driving_input`, `submit_mount_intent`, `submit_dismount_intent`).
+
+## Dependencies
+- Upstream M10 Impact Damage Model, M11 Player Traversal, M15 Construction Assemblies, standard downward gravity (-9.8 m/s²).
+
+## Performance
+- Raycast suspension: 4 down-facing raycasts evaluated on physics ticks (< 10 µs per vehicle).
+- Sleeping: vehicles sleep when stopped and unoccupied; wake when mounted or impacted.
+
+## Known limitations
+- Pure flight aerodynamics and boat hull hydrodynamics are simplified to ground/sled traversal until endgame escape mechanics in M19.
+
+## Failure modes
+- Driver disconnects while vehicle in motion: vehicle smoothly coasts and brakes to a halt under ground friction.
+- Passenger desync / obstruction: dismounting validates clear exit ground before placing character.
 
 ## Arowana notes
 - Vehicles are escape machines first, weapons second — ramming is legal and encouraged.
