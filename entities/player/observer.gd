@@ -37,6 +37,7 @@ const DEFAULT_MAX_HEALTH: float = 100.0
 
 var held_prop: PhysicalProp = null
 var carried_player: ObserverPlayer = null
+var survival: SurvivalState = SurvivalState.new()
 var is_alive: bool = true
 var climb_stamina_sec: float = PlayerTraversalState.CLIMB_STAMINA_MAX_SEC
 var ragdoll_time_sec: float = 0.0
@@ -189,6 +190,7 @@ func _physics_process(delta: float) -> void:
 			_e2e_camera_look_applied = true
 		_update_controller_look(delta)
 	if multiplayer.is_server():
+		_tick_authoritative_survival(delta)
 		if not _movement_enabled:
 			_local_move_direction = Vector3.ZERO
 			_wish_direction = Vector3.ZERO
@@ -371,6 +373,9 @@ func _simulate_authoritative_movement(delta: float) -> void:
 		return
 
 	var target_speed: float = SPRINT_SPEED_M_S if _wants_sprint else WALK_SPEED_M_S
+	if not survival.can_sprint():
+		_wants_sprint = false
+		target_speed = WALK_SPEED_M_S
 	if carried_player != null and is_instance_valid(carried_player):
 		_wants_sprint = false
 		target_speed = minf(target_speed, WALK_SPEED_M_S * 0.6)
@@ -414,22 +419,69 @@ func _check_wall_ahead() -> bool:
 	return PlayerTraversalState.can_climb(normal)
 
 
+func _tick_authoritative_survival(delta: float) -> void:
+	if not is_alive:
+		return
+	var weather: WeatherCondition = World.get_weather_at(global_position)
+	var is_underside: bool = global_position.y < -World.config.disk_thickness_m * 0.5
+	var events: Dictionary = survival.tick(
+		delta,
+		weather.temperature_c,
+		_wants_sprint,
+		movement_state == PlayerTraversalState.State.CLIMBING,
+		is_underside
+	)
+	health = survival.health
+	if events.get("died", false):
+		is_alive = false
+		player_died.emit(0)
+		_release_held_prop()
+		release_carried_player_host()
+	elif events.get("knocked_down", false):
+		knockdown_host(Vector3.ZERO)
+
+
 func apply_damage(amount: float, dealer_peer_id: int) -> void:
 	if not multiplayer.is_server() or not is_alive:
 		return
 	if amount <= 0.0:
 		return
-	health = maxf(health - amount, 0.0)
+	survival.apply_damage(amount)
+	health = survival.health
 	health_changed.emit(health, max_health)
-	if health <= 0.0:
+	if survival.is_dead:
 		is_alive = false
 		player_died.emit(dealer_peer_id)
 		_release_held_prop()
 		release_carried_player_host()
 		movement_state = PlayerTraversalState.State.RAGDOLL
 		ragdoll_time_sec = 0.0
+	elif survival.is_incapacitated:
+		knockdown_host(Vector3(randf_range(-3, 3), 2.0, randf_range(-3, 3)))
 	elif PlayerTraversalState.should_knockdown_from_damage(amount):
 		knockdown_host(Vector3(randf_range(-4, 4), 3.0, randf_range(-4, 4)))
+
+
+func consume_item_host(item: ConsumableDefinition) -> bool:
+	if not multiplayer.is_server() or not is_alive or item == null:
+		return false
+	survival.consume(
+		item.nutrition_value, item.hydration_value, item.health_value, item.thermal_modifier_c
+	)
+	health = survival.health
+	health_changed.emit(health, max_health)
+	return true
+
+
+func revive_target_host(target: ObserverPlayer) -> bool:
+	if not multiplayer.is_server() or not is_alive or target == null or target == self:
+		return false
+	var success: bool = target.survival.revive()
+	if success:
+		target.health = target.survival.health
+		target.movement_state = PlayerTraversalState.State.NORMAL
+		target.ragdoll_time_sec = 0.0
+	return success
 
 
 func knockdown_host(tumble_impulse: Vector3) -> void:

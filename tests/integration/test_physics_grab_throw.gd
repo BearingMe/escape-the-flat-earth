@@ -87,9 +87,14 @@ func test_player_damage_and_death_releases_prop() -> void:
 	assert_true(_player_1.is_alive)
 	assert_true(_prop.is_held_by(1))
 
-	# Player takes lethal 90 damage -> dies, prop must be automatically released
+	# Player takes lethal 90 damage -> enters incapacitation, prop must be automatically released
 	_player_1.apply_damage(90.0, 2)
 	assert_almost_eq(_player_1.health, 0.0, 0.01)
-	assert_false(_player_1.is_alive)
+	assert_true(_player_1.survival.is_incapacitated)
 	assert_false(_prop.is_held_by(1))
 	assert_false(_prop.is_held())
+
+	# When bleedout expires, player transitions to death
+	_player_1.survival.bleedout_timer_sec = 0.0
+	_player_1._tick_authoritative_survival(0.1)
+	assert_false(_player_1.is_alive)
