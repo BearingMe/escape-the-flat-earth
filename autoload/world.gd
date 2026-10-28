@@ -5,6 +5,7 @@ const WEATHER_SYNC_INTERVAL_SEC: float = 2.0
 
 var config: WorldConfig = DEFAULT_CONFIG.duplicate(true)
 var weather_sim: WeatherSimulation
+var hazard_system: HazardSystem = HazardSystem.new()
 var _entity_sequence: int = 1
 var _static_prop_ids_by_chunk: Dictionary = {}
 var _active_static_props: Dictionary = {}
@@ -32,6 +33,7 @@ func _init_weather_system() -> void:
 	weather_sim.configure(config, config.world_seed)
 	_terrain_generator = DiskTerrainGenerator.new()
 	_terrain_generator.configure(config, config.world_seed)
+	hazard_system.configure(config.disk_radius_m, 250.0, 900.0, Vector2.ZERO)
 
 
 func _physics_process(delta: float) -> void:
@@ -39,6 +41,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if has_host_authority():
 		weather_sim.advance_time(delta)
+		hazard_system.advance_time(delta)
 		_weather_sync_timer += delta
 		if _weather_sync_timer >= WEATHER_SYNC_INTERVAL_SEC:
 			_weather_sync_timer = 0.0

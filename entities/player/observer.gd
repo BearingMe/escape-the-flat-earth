@@ -437,6 +437,14 @@ func _tick_authoritative_survival(delta: float) -> void:
 		movement_state == PlayerTraversalState.State.CLIMBING,
 		is_underside
 	)
+	if World.hazard_system != null:
+		var hazard_res: Dictionary = World.hazard_system.evaluate_player_hazards(
+			self, weather, delta
+		)
+		var push_vec: Vector3 = hazard_res.get("push_vector", Vector3.ZERO)
+		if push_vec.length_squared() > 0.0:
+			velocity += push_vec * (delta / 80.0)
+
 	health = survival.health
 	if events.get("died", false):
 		is_alive = false
