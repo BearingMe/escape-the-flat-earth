@@ -1,0 +1,124 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/map/minimap.gd" id="1_minimap"]
+
+[node name="MinimapHUD" type="CanvasLayer"]
+script = ExtResource("1_minimap")
+
+[node name="HUD" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MapContainer" type="VBoxContainer" parent="HUD"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -236.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 340.0
+grow_horizontal = 0
+
+[node name="MinimapPanel" type="Control" parent="HUD/MapContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 220)
+layout_mode = 2
+
+[node name="TelemetryPanel" type="PanelContainer" parent="HUD/MapContainer"]
+layout_mode = 2
+
+[node name="TelemetryLabel" type="Label" parent="HUD/MapContainer/TelemetryPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 11
+text = "HEADING: 000° N | BIOME: PLAINS
+X: +0m | Z: +0m | ALT: +0.0m
+RIM DIST: 5000m (HABITABLE BASIN)"
+
+[node name="FullscreenPanel" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="FullscreenPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.05, 0.07, 0.92)
+
+[node name="MarginContainer" type="MarginContainer" parent="FullscreenPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 24
+
+[node name="VBoxContainer" type="VBoxContainer" parent="FullscreenPanel/MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="FullscreenPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "OFFICIAL FLAT EARTH SURVEY COMMISSION — UNIVERSAL AZIMUTHAL CHART"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="FullscreenPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 12
+text = "GLEASON STANDARD PROJECTION — AUTHORIZED BY THE FIRMAMENT GEODETIC SURVEY"
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="FullscreenPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 24
+
+[node name="FullscreenChartRect" type="TextureRect" parent="FullscreenPanel/MarginContainer/VBoxContainer/HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(480, 480)
+layout_mode = 2
+size_flags_horizontal = 3
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightColumn" type="VBoxContainer" parent="FullscreenPanel/MarginContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+
+[node name="FullscreenTelemetryLabel" type="Label" parent="FullscreenPanel/MarginContainer/VBoxContainer/HBoxContainer/RightColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.85, 0.88, 0.92, 1)
+theme_override_font_sizes/font_size = 13
+text = "SURVEY TELEMETRY"
+autowrap_mode = 3
+
+[node name="Footer" type="Label" parent="FullscreenPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "[M] TOGGLE CHART   |   [Z] CYCLE ZOOM   |   [N] TOGGLE ROTATION (NORTH-UP / HEADING-UP)"
+horizontal_alignment = 1
