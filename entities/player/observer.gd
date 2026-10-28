@@ -32,9 +32,15 @@ const DEFAULT_MAX_HEALTH: float = 100.0
 @export_range(0.1, 10.0, 0.1) var controller_sensitivity: float = CONTROLLER_LOOK_SENSITIVITY
 @export var max_health: float = DEFAULT_MAX_HEALTH
 @export var health: float = DEFAULT_MAX_HEALTH
+@export var movement_state: int = PlayerTraversalState.State.NORMAL
+@export var carrier_peer_id: int = 0
 
 var held_prop: PhysicalProp = null
+var carried_player: ObserverPlayer = null
 var is_alive: bool = true
+var climb_stamina_sec: float = PlayerTraversalState.CLIMB_STAMINA_MAX_SEC
+var ragdoll_time_sec: float = 0.0
+var _prev_fall_speed_m_s: float = 0.0
 
 var _local_yaw: float = 0.0
 var _local_pitch: float = 0.0
@@ -97,35 +103,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_handle_primary_action()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			submit_adjust_distance_intent.rpc_id(1, 0.3)
+			_rpc_submit_adjust_distance_intent.rpc_id(1, 0.3)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			submit_adjust_distance_intent.rpc_id(1, -0.3)
+			_rpc_submit_adjust_distance_intent.rpc_id(1, -0.3)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_E:
 			_handle_interact_action()
 		elif event.keycode == KEY_F:
 			_handle_throw_action()
+		elif event.keycode == KEY_SPACE and movement_state == PlayerTraversalState.State.RAGDOLL:
+			_rpc_submit_recover_intent.rpc_id(1)
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_mouse_motion(event.screen_relative)
 
 
 func _handle_interact_action() -> void:
-	if held_prop != null and is_instance_valid(held_prop):
-		submit_release_intent.rpc_id(1)
+	if carried_player != null and is_instance_valid(carried_player):
+		_rpc_submit_player_release_intent.rpc_id(1)
+	elif held_prop != null and is_instance_valid(held_prop):
+		_rpc_submit_release_intent.rpc_id(1)
 	else:
 		_raycast_and_grab()
 
 
 func _handle_throw_action() -> void:
-	if held_prop != null and is_instance_valid(held_prop):
-		var aim_dir: Vector3 = (
-			-_camera.global_transform.basis.z if is_instance_valid(_camera) else -transform.basis.z
-		)
-		submit_throw_intent.rpc_id(1, aim_dir)
+	var aim_dir: Vector3 = (
+		-_camera.global_transform.basis.z if is_instance_valid(_camera) else -transform.basis.z
+	)
+	if carried_player != null and is_instance_valid(carried_player):
+		_rpc_submit_player_throw_intent.rpc_id(1, aim_dir)
+	elif held_prop != null and is_instance_valid(held_prop):
+		_rpc_submit_throw_intent.rpc_id(1, aim_dir)
 
 
 func _handle_primary_action() -> void:
-	if held_prop != null and is_instance_valid(held_prop):
+	if (
+		(carried_player != null and is_instance_valid(carried_player))
+		or (held_prop != null and is_instance_valid(held_prop))
+	):
 		_handle_throw_action()
 	else:
 		_raycast_and_grab()
@@ -143,7 +158,9 @@ func _raycast_and_grab() -> void:
 	if not hit.is_empty():
 		var collider: Object = hit.get("collider")
 		if collider is PhysicalProp:
-			submit_grab_intent.rpc_id(1, (collider as PhysicalProp).get_path())
+			_rpc_submit_grab_intent.rpc_id(1, (collider as PhysicalProp).get_path())
+		elif collider is ObserverPlayer and collider != self:
+			_rpc_submit_player_grab_intent.rpc_id(1, (collider as ObserverPlayer).peer_id)
 
 
 func _process(_delta: float) -> void:
@@ -205,7 +222,7 @@ func _physics_process(delta: float) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable", 1)
-func submit_movement_intent(
+func _rpc_submit_movement_intent(
 	local_direction: Vector3, wants_sprint: bool, jump_requested: bool, yaw: float, pitch: float
 ) -> void:
 	if (
@@ -283,7 +300,7 @@ func _send_movement_intent(intent: Dictionary) -> void:
 	var jump_requested: bool = intent["jump"]
 	var yaw: float = intent["yaw"]
 	var pitch: float = intent["pitch"]
-	submit_movement_intent.rpc_id(1, local_direction, wants_sprint, jump_requested, yaw, pitch)
+	_rpc_submit_movement_intent.rpc_id(1, local_direction, wants_sprint, jump_requested, yaw, pitch)
 
 
 func _read_e2e_intent_delay_usec() -> int:
@@ -297,9 +314,67 @@ func _read_e2e_intent_delay_usec() -> int:
 
 
 func _simulate_authoritative_movement(delta: float) -> void:
+	if movement_state == PlayerTraversalState.State.CARRIED:
+		if carrier_peer_id > 0:
+			var parent_node: Node = get_parent()
+			var carrier: ObserverPlayer = (
+				parent_node.get_node_or_null("Player_%d" % carrier_peer_id) as ObserverPlayer
+				if parent_node != null
+				else null
+			)
+			if carrier != null and is_instance_valid(carrier) and carrier.is_alive:
+				var carry_pos: Vector3 = (
+					carrier.global_position
+					+ (-carrier.global_transform.basis.z * 1.5)
+					+ Vector3(0.0, 0.4, 0.0)
+				)
+				global_position = carry_pos
+				replicated_position = global_position
+				velocity = Vector3.ZERO
+				return
+		carrier_peer_id = 0
+		movement_state = PlayerTraversalState.State.RAGDOLL
+		ragdoll_time_sec = 0.0
+
+	var gravity_m_s2: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
+
+	if movement_state == PlayerTraversalState.State.RAGDOLL:
+		velocity.y = maxf(velocity.y - gravity_m_s2 * delta, -MAX_FALL_SPEED_M_S)
+		velocity.x = move_toward(velocity.x, 0.0, GROUND_BRAKING_M_S2 * 0.3 * delta)
+		velocity.z = move_toward(velocity.z, 0.0, GROUND_BRAKING_M_S2 * 0.3 * delta)
+		ragdoll_time_sec += delta
+		move_and_slide()
+		replicated_position = position
+		return
+
+	if movement_state == PlayerTraversalState.State.CLIMBING:
+		velocity.y = PlayerTraversalState.CLIMB_SPEED_M_S
+		velocity.x = move_toward(velocity.x, 0.0, GROUND_BRAKING_M_S2 * delta)
+		velocity.z = move_toward(velocity.z, 0.0, GROUND_BRAKING_M_S2 * delta)
+		climb_stamina_sec -= delta
+		move_and_slide()
+		replicated_position = position
+		if climb_stamina_sec <= 0.0 or is_on_floor() or not _check_wall_ahead():
+			movement_state = PlayerTraversalState.State.NORMAL
+		return
+
 	var is_grounded: bool = is_on_floor()
+	if is_grounded and _prev_fall_speed_m_s > PlayerTraversalState.HARD_FALL_SPEED_THRESHOLD:
+		knockdown_host(Vector3(velocity.x * 0.5, 2.0, velocity.z * 0.5))
+		_prev_fall_speed_m_s = 0.0
+		return
+
+	if not is_grounded and _jump_requested and _check_wall_ahead():
+		movement_state = PlayerTraversalState.State.CLIMBING
+		climb_stamina_sec = PlayerTraversalState.CLIMB_STAMINA_MAX_SEC
+		_jump_requested = false
+		return
+
 	var target_speed: float = SPRINT_SPEED_M_S if _wants_sprint else WALK_SPEED_M_S
-	if held_prop != null and is_instance_valid(held_prop):
+	if carried_player != null and is_instance_valid(carried_player):
+		_wants_sprint = false
+		target_speed = minf(target_speed, WALK_SPEED_M_S * 0.6)
+	elif held_prop != null and is_instance_valid(held_prop):
 		if held_prop.definition != null and held_prop.definition.is_two_handed:
 			_wants_sprint = false
 			target_speed = minf(target_speed, WALK_SPEED_M_S * 0.75)
@@ -318,11 +393,25 @@ func _simulate_authoritative_movement(delta: float) -> void:
 		else:
 			velocity.y = 0.0
 	else:
-		var gravity_m_s2: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 		velocity.y = maxf(velocity.y - gravity_m_s2 * delta, -MAX_FALL_SPEED_M_S)
 	_jump_requested = false
 	move_and_slide()
 	replicated_position = position
+	_prev_fall_speed_m_s = -velocity.y if not is_on_floor() else 0.0
+
+
+func _check_wall_ahead() -> bool:
+	var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var ray_origin: Vector3 = global_position + Vector3(0.0, 0.8, 0.0)
+	var forward_dir: Vector3 = -Basis(Vector3.UP, _local_yaw).z
+	var ray_end: Vector3 = ray_origin + forward_dir * 1.4
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	query.exclude = [get_rid()]
+	var hit: Dictionary = space_state.intersect_ray(query)
+	if hit.is_empty():
+		return false
+	var normal: Vector3 = hit.get("normal", Vector3.ZERO)
+	return PlayerTraversalState.can_climb(normal)
 
 
 func apply_damage(amount: float, dealer_peer_id: int) -> void:
@@ -336,6 +425,73 @@ func apply_damage(amount: float, dealer_peer_id: int) -> void:
 		is_alive = false
 		player_died.emit(dealer_peer_id)
 		_release_held_prop()
+		release_carried_player_host()
+		movement_state = PlayerTraversalState.State.RAGDOLL
+		ragdoll_time_sec = 0.0
+	elif PlayerTraversalState.should_knockdown_from_damage(amount):
+		knockdown_host(Vector3(randf_range(-4, 4), 3.0, randf_range(-4, 4)))
+
+
+func knockdown_host(tumble_impulse: Vector3) -> void:
+	if not multiplayer.is_server():
+		return
+	_release_held_prop()
+	release_carried_player_host()
+	movement_state = PlayerTraversalState.State.RAGDOLL
+	ragdoll_time_sec = 0.0
+	velocity = tumble_impulse
+
+
+func recover_host() -> bool:
+	if not multiplayer.is_server() or not is_alive:
+		return false
+	if movement_state != PlayerTraversalState.State.RAGDOLL:
+		return false
+	if ragdoll_time_sec < PlayerTraversalState.RAGDOLL_RECOVERY_TIME_SEC or not is_on_floor():
+		return false
+	movement_state = PlayerTraversalState.State.NORMAL
+	ragdoll_time_sec = 0.0
+	velocity = Vector3.ZERO
+	return true
+
+
+func grab_player_host(target: ObserverPlayer) -> bool:
+	if not multiplayer.is_server() or not is_alive or target == null or target == self:
+		return false
+	if carried_player != null or held_prop != null:
+		return false
+	carried_player = target
+	target.movement_state = PlayerTraversalState.State.CARRIED
+	target.carrier_peer_id = peer_id
+	target._release_held_prop()
+	target.release_carried_player_host()
+	return true
+
+
+func throw_carried_player_host(aim_direction: Vector3) -> void:
+	if (
+		not multiplayer.is_server()
+		or carried_player == null
+		or not is_instance_valid(carried_player)
+	):
+		return
+	var victim: ObserverPlayer = carried_player
+	carried_player = null
+	victim.carrier_peer_id = 0
+	victim.movement_state = PlayerTraversalState.State.RAGDOLL
+	victim.ragdoll_time_sec = 0.0
+	var throw_vel: Vector3 = ImpactDamageModel.calculate_throw_velocity(
+		aim_direction, velocity, 55.0, PlayerTraversalState.PLAYER_PAYLOAD_MASS_KG
+	)
+	victim.velocity = throw_vel
+
+
+func release_carried_player_host() -> void:
+	if carried_player != null and is_instance_valid(carried_player):
+		carried_player.carrier_peer_id = 0
+		carried_player.movement_state = PlayerTraversalState.State.RAGDOLL
+		carried_player.ragdoll_time_sec = 0.0
+		carried_player = null
 
 
 func grab_prop_host(prop: PhysicalProp) -> bool:
@@ -368,10 +524,49 @@ func _release_held_prop() -> void:
 
 func _exit_tree() -> void:
 	_release_held_prop()
+	release_carried_player_host()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func submit_grab_intent(prop_path: NodePath) -> void:
+func _rpc_submit_player_grab_intent(target_peer_id: int) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id or not is_alive:
+		return
+	var parent_node: Node = get_parent()
+	var target: ObserverPlayer = (
+		parent_node.get_node_or_null("Player_%d" % target_peer_id) as ObserverPlayer
+		if parent_node != null
+		else null
+	)
+	if target == null:
+		return
+	if global_position.distance_to(target.global_position) > 4.5:
+		return
+	grab_player_host(target)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_submit_player_throw_intent(aim_direction: Vector3) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	throw_carried_player_host(aim_direction)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_submit_player_release_intent() -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	release_carried_player_host()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_submit_recover_intent() -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	recover_host()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_submit_grab_intent(prop_path: NodePath) -> void:
 	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id or not is_alive:
 		return
 	var prop: PhysicalProp = get_node_or_null(prop_path) as PhysicalProp
@@ -386,21 +581,21 @@ func submit_grab_intent(prop_path: NodePath) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func submit_release_intent() -> void:
+func _rpc_submit_release_intent() -> void:
 	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
 		return
 	release_held_prop_host()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func submit_throw_intent(aim_direction: Vector3) -> void:
+func _rpc_submit_throw_intent(aim_direction: Vector3) -> void:
 	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
 		return
 	throw_held_prop_host(aim_direction)
 
 
 @rpc("any_peer", "call_remote", "unreliable")
-func submit_adjust_distance_intent(delta_distance: float) -> void:
+func _rpc_submit_adjust_distance_intent(delta_distance: float) -> void:
 	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
 		return
 	if held_prop != null and is_instance_valid(held_prop):

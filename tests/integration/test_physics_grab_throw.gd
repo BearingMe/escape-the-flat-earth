@@ -81,17 +81,15 @@ func test_player_damage_and_death_releases_prop() -> void:
 	_player_1.grab_prop_host(_prop)
 	assert_true(_prop.is_held_by(1))
 
-	# Player takes 40 damage
-	_player_1.apply_damage(40.0, 2)
-	assert_almost_eq(_player_1.health, 60.0, 0.01)
+	# Player takes 15 damage (below knockdown threshold 20.0) -> still holds prop
+	_player_1.apply_damage(15.0, 2)
+	assert_almost_eq(_player_1.health, 85.0, 0.01)
 	assert_true(_player_1.is_alive)
 	assert_true(_prop.is_held_by(1))
 
-	# Player takes lethal 80 damage
-	_player_1.apply_damage(80.0, 2)
+	# Player takes lethal 90 damage -> dies, prop must be automatically released
+	_player_1.apply_damage(90.0, 2)
 	assert_almost_eq(_player_1.health, 0.0, 0.01)
 	assert_false(_player_1.is_alive)
-
-	# Prop must be automatically released on death
 	assert_false(_prop.is_held_by(1))
 	assert_false(_prop.is_held())
