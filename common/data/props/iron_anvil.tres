@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PhysicalPropDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/physical_prop_definition.gd" id="1_prop"]
+
+[resource]
+script = ExtResource("1_prop")
+prop_id = "iron_anvil"
+display_name = "Iron Anvil"
+mass_kg = 75.0
+max_grab_distance_m = 2.5
+base_throw_impulse = 10.0
+damage_multiplier = 0.12
+is_two_handed = true
+friction = 0.8
+bounce = 0.05

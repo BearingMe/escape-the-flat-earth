@@ -1,6 +1,9 @@
 class_name ObserverPlayer
 extends CharacterBody3D
 
+signal health_changed(new_health: float, max_health: float)
+signal player_died(killer_peer_id: int)
+
 const WALK_SPEED_M_S: float = 6.0
 const SPRINT_SPEED_M_S: float = 9.0
 const GROUND_ACCELERATION_M_S2: float = 24.0
@@ -18,6 +21,7 @@ const LOOK_SENSITIVITY: float = 0.0025
 const CONTROLLER_LOOK_SENSITIVITY: float = 2.0
 const CONTROLLER_LOOK_DEADZONE: float = 0.18
 const MAX_VIEW_PITCH: float = 1.45
+const DEFAULT_MAX_HEALTH: float = 100.0
 
 @export var peer_id: int = 0
 @export var stable_id: String = ""
@@ -26,6 +30,11 @@ const MAX_VIEW_PITCH: float = 1.45
 @export var replicated_position: Vector3 = Vector3.ZERO
 @export_range(0.0001, 0.02, 0.0001) var mouse_sensitivity: float = LOOK_SENSITIVITY
 @export_range(0.1, 10.0, 0.1) var controller_sensitivity: float = CONTROLLER_LOOK_SENSITIVITY
+@export var max_health: float = DEFAULT_MAX_HEALTH
+@export var health: float = DEFAULT_MAX_HEALTH
+
+var held_prop: PhysicalProp = null
+var is_alive: bool = true
 
 var _local_yaw: float = 0.0
 var _local_pitch: float = 0.0
@@ -34,6 +43,8 @@ var _local_move_direction: Vector3 = Vector3.ZERO
 var _wants_sprint: bool = false
 var _jump_requested: bool = false
 var _jump_was_pressed: bool = false
+var _interact_was_pressed: bool = false
+var _throw_was_pressed: bool = false
 var _last_intent_usec: int = 0
 var _movement_enabled: bool = true
 var _e2e_intent_delay_usec: int = 0
@@ -83,8 +94,56 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 	elif event is InputEventMouseButton and event.pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_handle_primary_action()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			submit_adjust_distance_intent.rpc_id(1, 0.3)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			submit_adjust_distance_intent.rpc_id(1, -0.3)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_E:
+			_handle_interact_action()
+		elif event.keycode == KEY_F:
+			_handle_throw_action()
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_mouse_motion(event.screen_relative)
+
+
+func _handle_interact_action() -> void:
+	if held_prop != null and is_instance_valid(held_prop):
+		submit_release_intent.rpc_id(1)
+	else:
+		_raycast_and_grab()
+
+
+func _handle_throw_action() -> void:
+	if held_prop != null and is_instance_valid(held_prop):
+		var aim_dir: Vector3 = (
+			-_camera.global_transform.basis.z if is_instance_valid(_camera) else -transform.basis.z
+		)
+		submit_throw_intent.rpc_id(1, aim_dir)
+
+
+func _handle_primary_action() -> void:
+	if held_prop != null and is_instance_valid(held_prop):
+		_handle_throw_action()
+	else:
+		_raycast_and_grab()
+
+
+func _raycast_and_grab() -> void:
+	if not is_instance_valid(_camera):
+		return
+	var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var ray_origin: Vector3 = _camera.global_position
+	var ray_end: Vector3 = ray_origin - _camera.global_transform.basis.z * 4.5
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(ray_origin, ray_end)
+	query.exclude = [get_rid()]
+	var hit: Dictionary = space_state.intersect_ray(query)
+	if not hit.is_empty():
+		var collider: Object = hit.get("collider")
+		if collider is PhysicalProp:
+			submit_grab_intent.rpc_id(1, (collider as PhysicalProp).get_path())
 
 
 func _process(_delta: float) -> void:
@@ -240,6 +299,13 @@ func _read_e2e_intent_delay_usec() -> int:
 func _simulate_authoritative_movement(delta: float) -> void:
 	var is_grounded: bool = is_on_floor()
 	var target_speed: float = SPRINT_SPEED_M_S if _wants_sprint else WALK_SPEED_M_S
+	if held_prop != null and is_instance_valid(held_prop):
+		if held_prop.definition != null and held_prop.definition.is_two_handed:
+			_wants_sprint = false
+			target_speed = minf(target_speed, WALK_SPEED_M_S * 0.75)
+		elif held_prop.mass > 25.0:
+			target_speed *= clampf(1.0 - (held_prop.mass - 25.0) * 0.005, 0.5, 1.0)
+
 	var acceleration: float = GROUND_ACCELERATION_M_S2 if is_grounded else AIR_ACCELERATION_M_S2
 	if _wish_direction.is_zero_approx():
 		acceleration = GROUND_BRAKING_M_S2 if is_grounded else AIR_BRAKING_M_S2
@@ -257,6 +323,88 @@ func _simulate_authoritative_movement(delta: float) -> void:
 	_jump_requested = false
 	move_and_slide()
 	replicated_position = position
+
+
+func apply_damage(amount: float, dealer_peer_id: int) -> void:
+	if not multiplayer.is_server() or not is_alive:
+		return
+	if amount <= 0.0:
+		return
+	health = maxf(health - amount, 0.0)
+	health_changed.emit(health, max_health)
+	if health <= 0.0:
+		is_alive = false
+		player_died.emit(dealer_peer_id)
+		_release_held_prop()
+
+
+func grab_prop_host(prop: PhysicalProp) -> bool:
+	if not multiplayer.is_server() or not is_alive or prop == null:
+		return false
+	if held_prop != null:
+		_release_held_prop()
+	var success: bool = prop.grab(peer_id, self, 2.5)
+	if success:
+		held_prop = prop
+	return success
+
+
+func throw_held_prop_host(aim_direction: Vector3) -> void:
+	if not multiplayer.is_server() or held_prop == null or not is_instance_valid(held_prop):
+		return
+	held_prop.throw_prop(peer_id, aim_direction, velocity)
+	held_prop = null
+
+
+func release_held_prop_host() -> void:
+	_release_held_prop()
+
+
+func _release_held_prop() -> void:
+	if held_prop != null and is_instance_valid(held_prop):
+		held_prop.release(peer_id)
+		held_prop = null
+
+
+func _exit_tree() -> void:
+	_release_held_prop()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_grab_intent(prop_path: NodePath) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id or not is_alive:
+		return
+	var prop: PhysicalProp = get_node_or_null(prop_path) as PhysicalProp
+	if prop == null:
+		return
+	var max_reach: float = (
+		prop.definition.max_grab_distance_m + 1.5 if prop.definition != null else 5.0
+	)
+	if global_position.distance_to(prop.global_position) > max_reach:
+		return
+	grab_prop_host(prop)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_release_intent() -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	release_held_prop_host()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func submit_throw_intent(aim_direction: Vector3) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	throw_held_prop_host(aim_direction)
+
+
+@rpc("any_peer", "call_remote", "unreliable")
+func submit_adjust_distance_intent(delta_distance: float) -> void:
+	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id:
+		return
+	if held_prop != null and is_instance_valid(held_prop):
+		held_prop.adjust_distance(peer_id, delta_distance)
 
 
 func set_movement_enabled(enabled: bool) -> void:

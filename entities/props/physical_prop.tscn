@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://entities/props/physical_prop.gd" id="1_prop_script"]
+[ext_resource type="Resource" path="res://common/data/props/wood_crate.tres" id="2_crate_def"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_1"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[node name="PhysicalProp" type="RigidBody3D"]
+script = ExtResource("1_prop_script")
+definition = ExtResource("2_crate_def")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_1")
