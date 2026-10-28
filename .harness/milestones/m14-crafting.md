@@ -1,6 +1,6 @@
 # M14 — Crafting
 
-**Phase:** Survival economy · **Depends on:** M13 · **Status:** not started
+**Phase:** Survival economy · **Depends on:** M13 · **Status:** complete
 
 ## Goal
 Turn recovered junk into useful and ridiculous expedition tools.
@@ -21,6 +21,33 @@ Turn recovered junk into useful and ridiculous expedition tools.
 - Crafted items work with inventory and physics interaction systems.
 - Recipe progression is achievable using generated world resources.
 - Crafting state survives save/load.
+
+## Demo
+- Interact with world expedition workbenches: view craftable recipes, craft tools and equipment (grappling spikes, thermal wraps, steam megaphone, firmament sensor), and repair damaged tools using scrap metal.
+- Automated tests verifying recipe validation, atomic material consumption, shared station concurrency, and durability tracking: `godot --headless --path . --script res://tests/run_gut.gd`
+
+## Tests
+- `tests/unit/test_crafting_recipe.gd`: validates recipe ingredient requirements, output counts, station prerequisites, and validation checks.
+- `tests/unit/test_crafting_catalog.gd`: validates catalog registration, recipe discovery by available ingredients, and recipe queries.
+- `tests/integration/test_crafting_station.gd`: validates host-authoritative crafting execution, atomic ingredient deduction, inventory overflow handling, durability repairs, and concurrent multiplayer craft attempts.
+
+## Authority
+- Host owns all crafting recipe verification, ingredient consumption from player inventories, and item output generation.
+- Clients send crafting requests via RPC (`submit_craft_intent(recipe_id)`) and receive updated inventory state.
+
+## Dependencies
+- Upstream M13 Scavenging & Inventory (`InventoryContainer`, `ItemDefinition`, `LootContainer`).
+
+## Performance
+- Recipe lookup: O(1) dictionary query in static `CraftingCatalog`.
+- Ingredient consumption: atomic single-pass removal across inventory slots.
+
+## Known limitations
+- Complex crafting minigames are omitted in favor of instant/timed atomic recipes to preserve fast-paced battle royale tempo.
+
+## Failure modes
+- Insufficient ingredients or missing station: host rejects craft attempt with descriptive error code without consuming partial materials.
+- Inventory full on craft completion: crafted item is dropped physically into the world in front of the crafting station.
 
 ## Arowana notes
 - Crafting gates the endgame escape equipment (M19 leans here) — the recipe tree is the expedition's tech tree.

@@ -65,8 +65,8 @@ func test_streaming_across_full_disk_diameter_keeps_chunk_lifecycle_bounded() ->
 	Net.session_role = "host"
 	var streamer: TerrainStreamer = TERRAIN_STREAMER_SCENE.instantiate() as TerrainStreamer
 	autofree(streamer)
-	streamer.set_process(false)
 	add_child(streamer)
+	streamer.set_process(false)
 	assert_eq(streamer.configure_host_world(), OK)
 
 	var visited_chunks: int = 0
@@ -97,8 +97,8 @@ func test_chunk_population_batches_and_host_registry_follow_streaming() -> void:
 	Net.session_role = "host"
 	var streamer: TerrainStreamer = TERRAIN_STREAMER_SCENE.instantiate() as TerrainStreamer
 	autofree(streamer)
-	streamer.set_process(false)
 	add_child(streamer)
+	streamer.set_process(false)
 	assert_eq(streamer.configure_host_world(), OK)
 	var original_fingerprint: int = streamer.get_population_fingerprint(Vector2i.ZERO)
 	var original_population_count: int = streamer.get_population_count(Vector2i.ZERO)
