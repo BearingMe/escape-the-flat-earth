@@ -79,5 +79,6 @@ When work on a milestone starts, extend its file with:
 - **Performance:** relevant measurements, not speculative optimizations.
 - **Known limitations:** deviations, approximations, and intentionally deferred work.
 - **Failure modes:** expected and unexpected failures, recovery/player feedback, and tests for the failure paths.
+- **Adversary review:** an `@adversary` review findings summary covering failure modes, exploits, authority edge cases, and verification.
 
 **Scope rule:** A milestone is done when its acceptance criteria are met, not when every conceivable enhancement is implemented.

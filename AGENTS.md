@@ -85,7 +85,8 @@ The M1–M21 roadmap lives in `milestones/` (imported from the flat-earth plan);
 2. **Plan**: one feature per change, minimal blast radius.
 3. **Implement**: follow the conventions above; scenes stay text-format.
 4. **Verify**: smoke-test boot, tests, gdformat.
-5. **Self-review**: no unrelated file changes, no debug prints left behind.
+5. **Adversary Review**: run an `@adversary` review to stress-test architecture, failure modes, netcode authority, and edge cases.
+6. **Self-review**: no unrelated file changes, no debug prints left behind.
 
 ## Never
 - Never edit `.godot/`, `*.import`, or anything under `addons/` by hand.
@@ -104,5 +105,6 @@ Work is complete ONLY when:
 - GUT suite is green
 - Relevant headless E2E scenarios pass; multiplayer changes include a separate host and client process — never merge netcode blind from a single-instance test
 - No unexpected engine, GUT, or `push_error` output remains; intentional errors are asserted with recovery behavior covered
+- An `@adversary` review has been performed to identify critical failure modes, architectural gaps, and netcode risks, with all valid findings addressed
 - All changes for the milestone are committed with Conventional Commit messages before it is marked complete
 - No unrelated files were touched
