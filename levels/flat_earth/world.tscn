@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://levels/flat_earth/world_controller.gd" id="1_world_controller"]
 [ext_resource type="PackedScene" path="res://entities/world/disk.tscn" id="2_disk"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://entities/world/terrain_streamer.tscn" id="4_terrain_streamer"]
 [ext_resource type="PackedScene" path="res://ui/map/minimap.tscn" id="5_minimap"]
 [ext_resource type="PackedScene" path="res://entities/world/weather_controller.tscn" id="6_weather"]
+[ext_resource type="PackedScene" path="res://ui/menu/victory_screen.tscn" id="7_victory"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1_world_controller")
@@ -27,6 +28,9 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="MinimapHUD" parent="." instance=ExtResource("5_minimap")]
+unique_name_in_owner = true
+
+[node name="VictoryScreen" parent="." instance=ExtResource("7_victory")]
 unique_name_in_owner = true
 
 [node name="DebugOverlay" type="CanvasLayer" parent="."]
