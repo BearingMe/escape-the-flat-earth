@@ -1,0 +1,46 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://entities/world/weather_controller.gd" id="1_weather"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rain"]
+transparency = 1
+albedo_color = Color(0.7, 0.8, 1, 0.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rain"]
+material = SubResource("StandardMaterial3D_rain")
+size = Vector3(0.04, 0.5, 0.04)
+
+[sub_resource type="SphereMesh" id="SphereMesh_snow"]
+radius = 0.06
+height = 0.12
+
+[node name="WeatherController" type="Node3D"]
+script = ExtResource("1_weather")
+
+[node name="RainParticles" type="CPUParticles3D" parent="."]
+unique_name_in_owner = true
+emitting = false
+amount = 400
+lifetime = 1.2
+mesh = SubResource("BoxMesh_rain")
+emission_shape = 3
+emission_box_extents = Vector3(16, 8, 16)
+direction = Vector3(0, -1, 0)
+spread = 5.0
+gravity = Vector3(0, -18, 0)
+initial_velocity_min = 18.0
+initial_velocity_max = 24.0
+
+[node name="SnowParticles" type="CPUParticles3D" parent="."]
+unique_name_in_owner = true
+emitting = false
+amount = 300
+lifetime = 3.5
+mesh = SubResource("SphereMesh_snow")
+emission_shape = 3
+emission_box_extents = Vector3(16, 8, 16)
+direction = Vector3(0, -1, 0)
+spread = 25.0
+gravity = Vector3(0, -2.5, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 5.0

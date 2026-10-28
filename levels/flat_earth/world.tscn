@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://levels/flat_earth/world_controller.gd" id="1_world_controller"]
 [ext_resource type="PackedScene" path="res://entities/world/disk.tscn" id="2_disk"]
 [ext_resource type="Script" path="res://levels/flat_earth/debug_overlay.gd" id="3_debug_overlay"]
 [ext_resource type="PackedScene" path="res://entities/world/terrain_streamer.tscn" id="4_terrain_streamer"]
 [ext_resource type="PackedScene" path="res://ui/map/minimap.tscn" id="5_minimap"]
+[ext_resource type="PackedScene" path="res://entities/world/weather_controller.tscn" id="6_weather"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1_world_controller")
@@ -20,6 +21,9 @@ unique_name_in_owner = true
 spawn_path = NodePath("..")
 
 [node name="TerrainStreamer" parent="." instance=ExtResource("4_terrain_streamer")]
+unique_name_in_owner = true
+
+[node name="WeatherController" parent="." instance=ExtResource("6_weather")]
 unique_name_in_owner = true
 
 [node name="MinimapHUD" parent="." instance=ExtResource("5_minimap")]

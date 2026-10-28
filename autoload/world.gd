@@ -1,17 +1,22 @@
 extends Node
 
 const DEFAULT_CONFIG: WorldConfig = preload("res://common/data/world_default.tres")
+const WEATHER_SYNC_INTERVAL_SEC: float = 2.0
 
 var config: WorldConfig = DEFAULT_CONFIG.duplicate(true)
+var weather_sim: WeatherSimulation
 var _entity_sequence: int = 1
 var _static_prop_ids_by_chunk: Dictionary = {}
 var _active_static_props: Dictionary = {}
+var _terrain_generator: DiskTerrainGenerator
+var _weather_sync_timer: float = 0.0
 
 
 func _ready() -> void:
 	var validation: Error = config.validate()
 	if validation != OK:
 		Log.error("world.config_invalid", {"error": validation})
+	_init_weather_system()
 
 
 func set_seed(seed_value: int) -> void:
@@ -19,6 +24,57 @@ func set_seed(seed_value: int) -> void:
 	_entity_sequence = 1
 	_static_prop_ids_by_chunk.clear()
 	_active_static_props.clear()
+	_init_weather_system()
+
+
+func _init_weather_system() -> void:
+	weather_sim = WeatherSimulation.new()
+	weather_sim.configure(config, config.world_seed)
+	_terrain_generator = DiskTerrainGenerator.new()
+	_terrain_generator.configure(config, config.world_seed)
+
+
+func _physics_process(delta: float) -> void:
+	if weather_sim == null:
+		return
+	if has_host_authority():
+		weather_sim.advance_time(delta)
+		_weather_sync_timer += delta
+		if _weather_sync_timer >= WEATHER_SYNC_INTERVAL_SEC:
+			_weather_sync_timer = 0.0
+			_broadcast_weather_state()
+
+
+func get_weather_at(world_position: Vector3) -> WeatherCondition:
+	if weather_sim == null or _terrain_generator == null:
+		return WeatherCondition.new()
+	var biome_id: int = _terrain_generator.sample_biome_id(world_position.x, world_position.z)
+	return weather_sim.sample_weather(world_position, biome_id)
+
+
+func force_weather(type: int, intensity: float) -> void:
+	if weather_sim != null:
+		weather_sim.force_weather(type, intensity)
+		if has_host_authority():
+			_broadcast_weather_state()
+
+
+func clear_weather_override() -> void:
+	if weather_sim != null:
+		weather_sim.clear_override()
+		if has_host_authority():
+			_broadcast_weather_state()
+
+
+func _broadcast_weather_state() -> void:
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		rpc_sync_weather_state.rpc(weather_sim.get_sync_state())
+
+
+@rpc("authority", "call_remote", "unreliable")
+func rpc_sync_weather_state(state: Dictionary) -> void:
+	if weather_sim != null and not has_host_authority():
+		weather_sim.apply_sync_state(state)
 
 
 func has_host_authority() -> bool:
