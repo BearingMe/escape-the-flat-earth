@@ -58,6 +58,40 @@ func test_desired_chunks_are_deduplicated_for_players_in_shared_region() -> void
 	assert_true(distant.has(Vector2i(8, 8)))
 
 
+func test_streaming_across_full_disk_diameter_keeps_chunk_lifecycle_bounded() -> void:
+	World.set_seed(17320508)
+	World.config.terrain_cells_per_chunk = 2
+	World.config.terrain_view_radius_chunks = 0
+	Net.session_role = "host"
+	var streamer: TerrainStreamer = TERRAIN_STREAMER_SCENE.instantiate() as TerrainStreamer
+	autofree(streamer)
+	streamer.set_process(false)
+	add_child(streamer)
+	assert_eq(streamer.configure_host_world(), OK)
+
+	var visited_chunks: int = 0
+	for chunk_x: int in range(-39, 39):
+		var coordinate: Vector2i = Vector2i(chunk_x, 0)
+		var world_position: Vector3 = Vector3(
+			(
+				float(chunk_x) * World.config.terrain_chunk_size_m
+				+ World.config.terrain_chunk_size_m * 0.5
+			),
+			0.0,
+			World.config.terrain_chunk_size_m * 0.5
+		)
+		streamer.update_streaming_for_positions([world_position])
+		assert_eq(streamer.get_loaded_chunk_coordinates(), [coordinate])
+		assert_eq(streamer.get_loaded_chunk_count(), 1)
+		assert_eq(World.get_active_static_prop_count(), streamer.get_population_count(coordinate))
+		visited_chunks += 1
+		await get_tree().process_frame
+
+	assert_eq(visited_chunks, 78)
+	assert_eq(streamer.get_loaded_chunk_count(), 1)
+	assert_eq(World.get_active_static_prop_count(), streamer.get_population_count(Vector2i(38, 0)))
+
+
 func test_chunk_population_batches_and_host_registry_follow_streaming() -> void:
 	World.set_seed(17320508)
 	Net.session_role = "host"

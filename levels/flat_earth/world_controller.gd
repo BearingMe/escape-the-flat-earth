@@ -4,6 +4,8 @@ const E2E_TIMEOUT_SEC: float = 18.0
 const E2E_HOST_SETTLE_SEC: float = 0.75
 const E2E_CAMERA_SETTLE_SEC: float = 1.0
 const E2E_GROUND_SETTLE_SEC: float = 5.0
+const E2E_DISTANT_EXPLORATION_X_M: float = 2048.0
+const E2E_DISTANT_EXPLORATION_SETTLE_SEC: float = 0.75
 
 var _e2e_role: String = ""
 var _e2e_result_dir: String = ""
@@ -24,6 +26,12 @@ var _e2e_camera_wait_elapsed: float = 0.0
 var _e2e_ground_wait_elapsed: float = 0.0
 var _e2e_grounded_at_spawn: bool = false
 var _e2e_requested_seed: int = 0
+var _e2e_distant_exploration: bool = false
+var _e2e_drop_after_exploration: bool = false
+var _e2e_distant_exploration_started: bool = false
+var _e2e_distant_region_chunk_seen: bool = false
+var _e2e_distant_exploration_ready: bool = false
+var _e2e_distant_exploration_elapsed: float = 0.0
 
 @onready var _players: Node3D = %Players
 @onready var _spawner: MultiplayerSpawner = %Spawner
@@ -37,6 +45,8 @@ func _ready() -> void:
 	_e2e_client_slot = _read_integer_argument(arguments, "--e2e-client-slot", 0)
 	_e2e_drop_client_slot = _read_integer_argument(arguments, "--e2e-drop-client-slot", 0)
 	_e2e_drop_after_connect = arguments.has("--e2e-drop-after-connect")
+	_e2e_distant_exploration = arguments.has("--e2e-distant-exploration")
+	_e2e_drop_after_exploration = arguments.has("--e2e-drop-after-exploration")
 	var binding_result: Error = Net.bind_world(_players, _spawner)
 	if binding_result != OK:
 		Log.error("world.network_binding_failed", {"error": binding_result})
@@ -143,6 +153,11 @@ func _terrain_biome_snapshot() -> Dictionary:
 
 
 func _process_e2e_host(delta: float) -> void:
+	if (
+		_e2e_distant_exploration_started
+		and _terrain_streamer.get_loaded_chunk_coordinates().has(Vector2i(16, 0))
+	):
+		_e2e_distant_region_chunk_seen = true
 	if _e2e_host_settle >= 0.0:
 		_e2e_host_settle -= delta
 		if _e2e_host_settle <= 0.0:
@@ -170,6 +185,8 @@ func _process_e2e_host(delta: float) -> void:
 		for child: Node in _players.get_children():
 			if child is ObserverPlayer and child.peer_id != 1:
 				_e2e_initial_positions[child.peer_id] = child.global_position
+		if _e2e_distant_exploration:
+			_begin_e2e_distant_exploration()
 	if not _e2e_full_capacity_seen or Net.player_count() != World.config.max_players - 1:
 		return
 	var dropped_peer_id: int = _read_dropped_peer_id()
@@ -199,6 +216,7 @@ func _process_e2e_host(delta: float) -> void:
 			"terrain_fingerprint": _terrain_streamer.get_chunk_fingerprint(Vector2i.ZERO),
 			"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count(),
 			"active_static_prop_count": World.get_active_static_prop_count(),
+			"distant_region_chunk_loaded": _e2e_distant_region_chunk_seen,
 			"player_positions": _snapshot_player_positions()
 		}
 	)
@@ -261,6 +279,34 @@ func _snapshot_player_positions() -> Dictionary:
 	return positions
 
 
+func _begin_e2e_distant_exploration() -> void:
+	var distant_observer: ObserverPlayer
+	for child: Node in _players.get_children():
+		if child is ObserverPlayer and child.peer_id != 1:
+			distant_observer = child
+			break
+	if distant_observer == null:
+		_finish_e2e_failure("distant_exploration_missing_client")
+		return
+	var generator: DiskTerrainGenerator = DiskTerrainGenerator.new()
+	if generator.configure(World.config, World.config.world_seed) != OK:
+		_finish_e2e_failure("distant_exploration_generator")
+		return
+	var distant_position: Vector3 = Vector3(
+		E2E_DISTANT_EXPLORATION_X_M,
+		(
+			World.config.disk_thickness_m * 0.5
+			+ generator.sample_mesh_cell_max_height(E2E_DISTANT_EXPLORATION_X_M, 0.0)
+			+ 0.1
+		),
+		0.0
+	)
+	distant_observer.global_position = distant_position
+	distant_observer.replicated_position = distant_position
+	distant_observer.velocity = Vector3.ZERO
+	_e2e_distant_exploration_started = true
+
+
 func _process_e2e_client(delta: float) -> void:
 	if Net.session_status == "connected" and not _e2e_client_ready_written:
 		var local_observer: ObserverPlayer = _find_local_observer()
@@ -297,6 +343,8 @@ func _process_e2e_client(delta: float) -> void:
 					"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count()
 				}
 			)
+	if _e2e_distant_exploration and _process_e2e_distant_exploration(delta):
+		return
 	if _e2e_drop_after_connect and _e2e_client_ready_written:
 		_e2e_drop_elapsed += delta
 		if _e2e_drop_elapsed >= 2.0:
@@ -337,6 +385,43 @@ func _process_e2e_client(delta: float) -> void:
 			}
 		)
 		get_tree().quit(0 if status == "passed" else 1)
+
+
+func _process_e2e_distant_exploration(delta: float) -> bool:
+	if _e2e_client_slot != 1 or not _e2e_client_ready_written:
+		return false
+	var local_observer: ObserverPlayer = _find_local_observer()
+	if local_observer == null:
+		return false
+	var distant_chunk: Vector2i = Vector2i(
+		floori(E2E_DISTANT_EXPLORATION_X_M / World.config.terrain_chunk_size_m), 0
+	)
+	if (
+		not _e2e_distant_exploration_ready
+		and local_observer.global_position.x >= E2E_DISTANT_EXPLORATION_X_M - 32.0
+		and _terrain_streamer.get_loaded_chunk_coordinates().has(distant_chunk)
+	):
+		_e2e_distant_exploration_ready = _write_e2e_result(
+			"client-%d.explore.json" % _e2e_client_slot,
+			{
+				"status": "passed",
+				"position_x": local_observer.global_position.x,
+				"target_chunk": [distant_chunk.x, distant_chunk.y],
+				"loaded_chunk_count": _terrain_streamer.get_loaded_chunk_count()
+			}
+		)
+	if not _e2e_drop_after_exploration or not _e2e_distant_exploration_ready:
+		return false
+	_e2e_distant_exploration_elapsed += delta
+	if _e2e_distant_exploration_elapsed < E2E_DISTANT_EXPLORATION_SETTLE_SEC:
+		return false
+	_write_e2e_result(
+		"client-%d.drop.json" % _e2e_client_slot,
+		{"status": "passed", "peer_id": _e2e_local_peer_id}
+	)
+	Net.end_session()
+	get_tree().quit(0)
+	return true
 
 
 func _find_local_observer() -> ObserverPlayer:

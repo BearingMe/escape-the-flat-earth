@@ -11,6 +11,8 @@ var _run_directory: String = ""
 var _host_process_id: int = 0
 var _client_process_ids: Array[int] = []
 var _failure_message: String = ""
+var _client_count: int = CLIENT_COUNT
+var _distant_exploration: bool = false
 
 
 func _initialize() -> void:
@@ -18,6 +20,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	_distant_exploration = OS.get_cmdline_user_args().has("--e2e-distant-exploration")
+	if _distant_exploration:
+		_client_count = 1
 	var project_path: String = ProjectSettings.globalize_path("res://").trim_suffix("/")
 	var passed: bool = _prepare_run_directory()
 	if passed:
@@ -29,9 +34,16 @@ func _run() -> void:
 	if passed:
 		print(
 			(
-				"Multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
-				+ "local camera ownership/look, 100 ms delayed host-resolved movement, client convergence, "
-				+ "disconnect cleanup, and teardown."
+				(
+					"Distant exploration E2E passed: host + 1 client streamed a remote region, "
+					+ "then disconnected cleanly."
+				)
+				if _distant_exploration
+				else (
+					"Multiplayer E2E passed: host + 5 clients, unique peer-keyed spawns, "
+					+ "local camera ownership/look, 100 ms delayed host-resolved movement, "
+					+ "client convergence, disconnect cleanup, and teardown."
+				)
 			)
 		)
 		quit(0)
@@ -52,7 +64,9 @@ func _prepare_run_directory() -> bool:
 
 func _start_host_stage(project_path: String) -> bool:
 	var port: int = 30000 + (Time.get_ticks_msec() % 20000)
-	_host_process_id = _start_child(project_path, "host", "", port, 0, false, false)
+	_host_process_id = _start_child(
+		project_path, "host", "", port, 0, false, false, _distant_exploration
+	)
 	if _host_process_id <= 0:
 		_failure_message = "Could not start the host process"
 		return false
@@ -78,8 +92,8 @@ func _run_client_stage(project_path: String) -> bool:
 
 
 func _launch_clients(project_path: String, port: int) -> bool:
-	for client_slot: int in range(1, CLIENT_COUNT + 1):
-		var drop_after_connect: bool = client_slot == CLIENT_COUNT
+	for client_slot: int in range(1, _client_count + 1):
+		var drop_after_connect: bool = client_slot == _client_count and not _distant_exploration
 		var client_pid: int = _start_child(
 			project_path,
 			"client-%d" % client_slot,
@@ -87,7 +101,8 @@ func _launch_clients(project_path: String, port: int) -> bool:
 			port,
 			client_slot,
 			drop_after_connect,
-			true
+			true,
+			_distant_exploration
 		)
 		if client_pid <= 0:
 			_failure_message = "Could not start client %d" % client_slot
@@ -103,14 +118,20 @@ func _launch_clients(project_path: String, port: int) -> bool:
 
 
 func _wait_for_capacity_disconnect_and_host_result() -> bool:
-	for client_slot: int in range(1, CLIENT_COUNT + 1):
+	for client_slot: int in range(1, _client_count + 1):
 		if not await _wait_for_file(
 			"client-%d.ready.json" % client_slot, _client_process_ids[client_slot - 1]
 		):
 			_failure_message = "A client did not connect and spawn"
 			return false
-	if not await _wait_for_file("client-%d.drop.json" % CLIENT_COUNT, _client_process_ids.back()):
+	if not await _wait_for_file("client-%d.drop.json" % _client_count, _client_process_ids.back()):
 		_failure_message = "Disconnecting client did not complete its clean shutdown"
+		return false
+	if (
+		_distant_exploration
+		and not await _wait_for_file("client-1.explore.json", _client_process_ids[0])
+	):
+		_failure_message = "Client did not publish its distant exploration result"
 		return false
 	if not await _wait_for_file("host.result.json", _host_process_id):
 		_failure_message = "Host did not verify capacity, movement, and disconnect cleanup"
@@ -119,7 +140,7 @@ func _wait_for_capacity_disconnect_and_host_result() -> bool:
 
 
 func _wait_for_remaining_client_results() -> bool:
-	for client_slot: int in range(1, CLIENT_COUNT):
+	for client_slot: int in range(1, _client_count):
 		if not await _wait_for_file(
 			"client-%d.result.json" % client_slot, _client_process_ids[client_slot - 1]
 		):
@@ -132,7 +153,7 @@ func _wait_for_child_exits() -> bool:
 	if not await _wait_for_exit(_host_process_id):
 		_failure_message = "Host process did not exit after scenario completion"
 		return false
-	for client_index: int in range(CLIENT_COUNT):
+	for client_index: int in range(_client_count):
 		if not await _wait_for_exit(_client_process_ids[client_index]):
 			_failure_message = "Client process did not exit after scenario completion"
 			return false
@@ -149,14 +170,39 @@ func _verify_results() -> bool:
 		return false
 	if not _verify_movement_results():
 		return false
-	return _verify_disconnect_results()
+	if not _verify_disconnect_results():
+		return false
+	return _verify_distant_exploration_results() if _distant_exploration else true
+
+
+func _verify_distant_exploration_results() -> bool:
+	var client_result: Variant = _read_result("client-1.explore.json")
+	var host_result: Variant = _read_result("host.result.json")
+	var target_chunk: Variant = (
+		client_result.get("target_chunk") if client_result is Dictionary else null
+	)
+	if (
+		not client_result is Dictionary
+		or client_result.get("status") != "passed"
+		or int(client_result.get("position_x", 0.0)) < 2016
+		or not target_chunk is Array
+		or target_chunk.size() != 2
+		or int(target_chunk[0]) != 16
+		or int(target_chunk[1]) != 0
+		or int(client_result.get("loaded_chunk_count", 0)) <= 0
+		or not host_result is Dictionary
+		or host_result.get("distant_region_chunk_loaded") != true
+	):
+		_failure_message = "Host and client did not both stream the distant region"
+		return false
+	return true
 
 
 func _verify_disconnect_results() -> bool:
-	if not _result_passed("client-%d.drop.json" % CLIENT_COUNT):
+	if not _result_passed("client-%d.drop.json" % _client_count):
 		_failure_message = "Disconnecting client result was not passing"
 		return false
-	for client_slot: int in range(1, CLIENT_COUNT):
+	for client_slot: int in range(1, _client_count):
 		if not _result_passed("client-%d.result.json" % client_slot):
 			_failure_message = "Client %d did not report clean disconnect" % client_slot
 			return false
@@ -180,7 +226,7 @@ func _verify_movement_results() -> bool:
 	if not _result_has_true("host.result.json", "host_resolved_movement"):
 		_failure_message = "Host did not resolve remote movement intents"
 		return false
-	for client_slot: int in range(1, CLIENT_COUNT):
+	for client_slot: int in range(1, _client_count):
 		if not _result_has_number(
 			"client-%d.ready.json" % client_slot,
 			"movement_intent_delay_msec",
@@ -200,7 +246,7 @@ func _verify_world_results() -> bool:
 		return false
 	var host_biome_samples: Variant = host_ready.get("biome_samples")
 	var host_population_fingerprint: int = int(host_ready.get("population_fingerprint", 0))
-	for client_slot: int in range(1, CLIENT_COUNT + 1):
+	for client_slot: int in range(1, _client_count + 1):
 		var client_ready: Variant = _read_result("client-%d.ready.json" % client_slot)
 		if not client_ready is Dictionary:
 			_failure_message = (
@@ -267,7 +313,7 @@ func _verify_camera_results() -> bool:
 	if not _result_has_true("host.result.json", "camera_look_applied"):
 		_failure_message = "Host camera did not process local look input"
 		return false
-	for client_slot: int in range(1, CLIENT_COUNT + 1):
+	for client_slot: int in range(1, _client_count + 1):
 		if not _result_has_true("client-%d.ready.json" % client_slot, "camera_ownership_valid"):
 			_failure_message = (
 				"Client %d did not retain exclusive ownership of its local camera" % client_slot
@@ -299,7 +345,8 @@ func _start_child(
 	port: int,
 	client_slot: int,
 	drop_after_connect: bool,
-	drive: bool
+	drive: bool,
+	distant_exploration: bool
 ) -> int:
 	var log_path: String = _run_directory.path_join("%s.log" % role)
 	var arguments: PackedStringArray = PackedStringArray(
@@ -308,11 +355,15 @@ func _start_child(
 	if role != "host":
 		arguments.append("--join=%s" % address)
 	if role == "host":
-		arguments.append("--e2e-drop-client-slot=%d" % CLIENT_COUNT)
+		arguments.append("--e2e-drop-client-slot=%d" % _client_count)
 	if client_slot > 0:
 		arguments.append("--e2e-client-slot=%d" % client_slot)
 	if drop_after_connect:
 		arguments.append("--e2e-drop-after-connect")
+	if distant_exploration:
+		arguments.append("--e2e-distant-exploration")
+		if role != "host":
+			arguments.append("--e2e-drop-after-exploration")
 	if drive:
 		arguments.append("--e2e-drive")
 		arguments.append("--e2e-intent-delay-ms=%d" % SIMULATED_INTENT_DELAY_MSEC)
@@ -320,7 +371,7 @@ func _start_child(
 	arguments.append("--e2e-role=%s" % ("host" if role == "host" else "client"))
 	arguments.append("--e2e-result-dir=%s" % _run_directory)
 	arguments.append("--port=%d" % port)
-	arguments.append("--max-players=6")
+	arguments.append("--max-players=%d" % (2 if distant_exploration else 6))
 	arguments.append("--seed=%d" % (HOST_WORLD_SEED if role == "host" else CLIENT_REQUESTED_SEED))
 	return OS.create_process(OS.get_executable_path(), arguments, false)
 
