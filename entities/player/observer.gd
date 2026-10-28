@@ -38,6 +38,7 @@ const DEFAULT_MAX_HEALTH: float = 100.0
 var held_prop: PhysicalProp = null
 var carried_player: ObserverPlayer = null
 var survival: SurvivalState = SurvivalState.new()
+var inventory: InventoryContainer = InventoryContainer.new(12, 60.0)
 var is_alive: bool = true
 var climb_stamina_sec: float = PlayerTraversalState.CLIMB_STAMINA_MAX_SEC
 var ragdoll_time_sec: float = 0.0
@@ -385,6 +386,11 @@ func _simulate_authoritative_movement(delta: float) -> void:
 			target_speed = minf(target_speed, WALK_SPEED_M_S * 0.75)
 		elif held_prop.mass > 25.0:
 			target_speed *= clampf(1.0 - (held_prop.mass - 25.0) * 0.005, 0.5, 1.0)
+
+	if inventory != null:
+		var inv_weight: float = inventory.get_total_weight()
+		if inv_weight > 30.0:
+			target_speed *= clampf(1.0 - (inv_weight - 30.0) * 0.008, 0.6, 1.0)
 
 	var acceleration: float = GROUND_ACCELERATION_M_S2 if is_grounded else AIR_ACCELERATION_M_S2
 	if _wish_direction.is_zero_approx():
