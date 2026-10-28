@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConstructionPartDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/construction_part_definition.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+part_type_id = "metal_ramp"
+display_name = "Reinforced Scaffold Ramp"
+mass_kg = 35.0
+joint_breaking_force_n = 1200.0
+dimensions = Vector3(3, 0.4, 1.2)
+sockets = [Vector3(-1.5, 0, 0), Vector3(1.5, 0, 0), Vector3(0, 0, 0)]
+is_hinge = false

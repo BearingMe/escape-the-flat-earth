@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConstructionPartDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/construction_part_definition.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+part_type_id = "wood_beam"
+display_name = "Structural Wood Beam"
+mass_kg = 20.0
+joint_breaking_force_n = 750.0
+dimensions = Vector3(2, 0.3, 0.3)
+sockets = [Vector3(-1, 0, 0), Vector3(1, 0, 0), Vector3(0, 0, 0)]
+is_hinge = false
