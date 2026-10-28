@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyArchetypeDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/enemy_archetype_definition.gd" id="1_enemy"]
+
+[resource]
+script = ExtResource("1_enemy")
+archetype_id = 1
+display_name = "Perimeter Ice Sentinel"
+max_health = 220.0
+movement_speed_m_s = 4.5
+perception_radius_m = 32.0
+attack_range_m = 16.0
+attack_cooldown_sec = 3.5
+damage = 35.0
+drop_item_id = "ice_crystal"
+drop_count = 3

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyArchetypeDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/enemy_archetype_definition.gd" id="1_enemy"]
+
+[resource]
+script = ExtResource("1_enemy")
+archetype_id = 2
+display_name = "Void Abyss Swarmer"
+max_health = 35.0
+movement_speed_m_s = 11.0
+perception_radius_m = 20.0
+attack_range_m = 2.0
+attack_cooldown_sec = 1.0
+damage = 12.0
+drop_item_id = "void_obsidian"
+drop_count = 1

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyArchetypeDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://common/enemy_archetype_definition.gd" id="1_enemy"]
+
+[resource]
+script = ExtResource("1_enemy")
+archetype_id = 0
+display_name = "Firmament Geodetic Drone"
+max_health = 60.0
+movement_speed_m_s = 9.5
+perception_radius_m = 26.0
+attack_range_m = 2.5
+attack_cooldown_sec = 2.0
+damage = 22.0
+drop_item_id = "tech_components"
+drop_count = 2

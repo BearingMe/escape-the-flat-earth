@@ -1,0 +1,22 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://entities/npcs/enemy_entity.gd" id="1_enemy_script"]
+[ext_resource type="Resource" path="res://common/data/enemies/geodetic_drone.tres" id="2_drone_def"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.5
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.5
+height = 1.8
+
+[node name="EnemyEntity" type="CharacterBody3D"]
+script = ExtResource("1_enemy_script")
+archetype = ExtResource("2_drone_def")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_1")
