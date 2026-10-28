@@ -1,11 +1,15 @@
 extends Node
 
+signal match_concluded(winner_peer_id: int, victory_reason: String, escape_strategy: String)
+
 const DEFAULT_CONFIG: WorldConfig = preload("res://common/data/world_default.tres")
 const WEATHER_SYNC_INTERVAL_SEC: float = 2.0
 
 var config: WorldConfig = DEFAULT_CONFIG.duplicate(true)
 var weather_sim: WeatherSimulation
 var hazard_system: HazardSystem = HazardSystem.new()
+var escape_tracker: EscapeTracker = EscapeTracker.new()
+var match_time_sec: float = 0.0
 var _entity_sequence: int = 1
 var _static_prop_ids_by_chunk: Dictionary = {}
 var _active_static_props: Dictionary = {}
@@ -34,18 +38,53 @@ func _init_weather_system() -> void:
 	_terrain_generator = DiskTerrainGenerator.new()
 	_terrain_generator.configure(config, config.world_seed)
 	hazard_system.configure(config.disk_radius_m, 250.0, 900.0, Vector2.ZERO)
+	escape_tracker.configure(config.disk_radius_m)
+	if not escape_tracker.match_concluded.is_connected(_on_escape_match_concluded):
+		escape_tracker.match_concluded.connect(_on_escape_match_concluded)
 
 
 func _physics_process(delta: float) -> void:
 	if weather_sim == null:
 		return
 	if has_host_authority():
+		match_time_sec += delta
 		weather_sim.advance_time(delta)
 		hazard_system.advance_time(delta)
+		_check_escapes()
 		_weather_sync_timer += delta
 		if _weather_sync_timer >= WEATHER_SYNC_INTERVAL_SEC:
 			_weather_sync_timer = 0.0
 			_broadcast_weather_state()
+
+
+func _check_escapes() -> void:
+	if escape_tracker.is_match_concluded:
+		return
+	var living_players: Array[ObserverPlayer] = []
+	for node: Node in get_tree().get_nodes_in_group("network_players"):
+		var p: ObserverPlayer = node as ObserverPlayer
+		if p != null and is_instance_valid(p) and p.is_alive:
+			living_players.append(p)
+			if escape_tracker.check_player_escape(p, match_time_sec):
+				return
+	if Net.player_count() >= 2:
+		escape_tracker.check_last_man_standing(living_players, Net.player_count())
+
+
+func _on_escape_match_concluded(winner_id: int, reason: String, strategy: String) -> void:
+	match_concluded.emit(winner_id, reason, strategy)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		rpc_notify_match_concluded.rpc(winner_id, reason, strategy)
+
+
+@rpc("authority", "call_remote", "reliable")
+func rpc_notify_match_concluded(winner_id: int, reason: String, strategy: String) -> void:
+	if not has_host_authority():
+		escape_tracker.is_match_concluded = true
+		escape_tracker.winner_peer_id = winner_id
+		escape_tracker.victory_reason = reason
+		escape_tracker.escape_strategy = strategy
+		match_concluded.emit(winner_id, reason, strategy)
 
 
 func get_weather_at(world_position: Vector3) -> WeatherCondition:
